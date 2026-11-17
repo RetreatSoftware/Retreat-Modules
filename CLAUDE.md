@@ -12,7 +12,7 @@ Early stage. No code exists yet. Do not implement anything beyond what is explic
 
 ## Ecosystem context
 
-Sibling repositories (cloned next to this one under `Retreat/`): `Retreat-CoreSDK`, `Retreat-Engine-3D`, `Retreat-Forge`, `Retreat-Website`. Vision documents live in the parent folder: `FRAMEWORK.en.md` and `PLATFORM.en.md`.
+Sibling repositories (cloned next to this one under `Retreat/`): `Retreat-CoreSDK`, `Retreat-Engine-3D`, `Retreat-Forge`, `Retreat-Website`. Vision documents live in the `Retreat` repository: [FRAMEWORK.md](https://github.com/RetreatSoftware/Retreat/blob/main/FRAMEWORK.md) and [PLATFORM.md](https://github.com/RetreatSoftware/Retreat/blob/main/PLATFORM.md).
 
 ## Rules
 
