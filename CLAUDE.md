@@ -8,7 +8,7 @@ The root `../CLAUDE.md` also applies here. This file may narrow its scope (see "
 
 ## Status
 
-Early stage. One module exists: `crates/retreat_module_spawner` (`spawner.rain <count>`, action `rain` on key R), the first module and the template for the next ones. Do not implement anything beyond what is explicitly requested.
+Early stage. Modules: `crates/retreat_module_spawner` (`spawner.rain <count>`, action `rain` on key R), the first module and the template for the next ones; `crates/retreat_module_orbit_camera` (`orbit.start|stop|set_angle`, held actions `orbit_left` / `orbit_right` on the arrow keys), which proves input + camera together: it edits a `GameCamera` and reads `InputActions::is_held` from a `FixedUpdate` system ordered `.after(InputActionSystems)`. Do not implement anything beyond what is explicitly requested.
 
 ## Layout and decisions
 

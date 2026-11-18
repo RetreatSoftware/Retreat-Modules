@@ -4697,10 +4697,18 @@ checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
 [[package]]
 name = "retreat_engine_api"
 version = "0.1.0"
-source = "git+https://github.com/RetreatSoftware/Retreat-Engine-3D#f99346b48c05bf6d87b345ea1fa98d7710b1f0a9"
+source = "git+https://github.com/RetreatSoftware/Retreat-Engine-3D#3e7c44d755d8fa7023a0b1f5d4a8a0111d7724d5"
 dependencies = [
  "bevy",
  "retreat_rng",
+]
+
+[[package]]
+name = "retreat_module_orbit_camera"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "retreat_engine_api",
 ]
 
 [[package]]

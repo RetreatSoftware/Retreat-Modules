@@ -8,7 +8,7 @@
 
 [workspace]
 resolver = "3"
-members = ["crates/retreat_module_spawner"]
+members = ["crates/retreat_module_spawner", "crates/retreat_module_orbit_camera"]
 
 [workspace.package]
 version = "0.1.0"

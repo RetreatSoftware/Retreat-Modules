@@ -1,0 +1,21 @@
+[package]
+name = "retreat_module_orbit_camera"
+description = "Retreat module: an orbit camera. Arrow keys (held) rotate a GameCamera around its target."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+bevy.workspace = true
+retreat_engine_api.workspace = true
+
+# Module manifest (schema in Retreat-Modules/CLAUDE.md).
+[package.metadata.retreat]
+id = "orbit_camera"
+display_name = "Orbit camera"
+summary = "Rotates a game camera around its target while the orbit keys are held."
+plugin = "retreat_module_orbit_camera::OrbitCameraModulePlugin"
+commands = ["orbit.start", "orbit.stop", "orbit.set_angle"]
+actions = ["orbit_left", "orbit_right"]
+requires = ["input", "camera"]
+engine_api = "0.1"
