@@ -1,0 +1,21 @@
+[package]
+name = "retreat_module_sfx"
+description = "Retreat module: decides which sounds play when (`sfx.play`, `sfx.music`, key P beeps)."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+bevy.workspace = true
+retreat_engine_api.workspace = true
+
+# Module manifest (schema in Retreat-Modules/CLAUDE.md).
+[package.metadata.retreat]
+id = "sfx"
+display_name = "Sound effects"
+summary = "Plays effects and music on commands and key presses; the engine does the playback."
+plugin = "retreat_module_sfx::SfxModulePlugin"
+commands = ["sfx.play", "sfx.music"]
+actions = ["sfx_beep"]
+requires = ["input", "audio"]
+engine_api = "0.1"
