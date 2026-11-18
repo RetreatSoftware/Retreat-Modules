@@ -17,6 +17,7 @@ retreat_engine_api.workspace = true
 #   plugin        the Bevy plugin type a game adds
 #   commands      command ids the module registers (each `area.verb`, unique across modules)
 #   requires      engine capabilities it needs
+#   actions       input action ids it registers (unique across modules)
 #   engine_api    compatible retreat_engine_api version (semver requirement)
 [package.metadata.retreat]
 id = "spawner"
@@ -24,5 +25,6 @@ display_name = "Spawner"
 summary = "Drops physics boxes from the sky."
 plugin = "retreat_module_spawner::SpawnerModulePlugin"
 commands = ["spawner.rain"]
-requires = ["physics"]
+requires = ["physics", "input"]
+actions = ["rain"]
 engine_api = "0.1"

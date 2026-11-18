@@ -10,7 +10,8 @@
 
 use bevy::prelude::*;
 use retreat_engine_api::{
-    AppCommandExt, CommandArgs, CommandOutcome, CommandResult, PhysicsBody, SimulationRng,
+    AppCommandExt, AppInputExt, CommandArgs, CommandOutcome, CommandResult, InputAction, InputKey,
+    PhysicsBody, SimulationRng,
 };
 
 /// Most boxes one `spawner.rain` may drop (keeps a typo like `spawner.rain 10000` harmless).
@@ -26,16 +27,18 @@ const MIN_BOX_SIZE: f32 = 0.25;
 const MAX_BOX_SIZE: f32 = 0.5;
 const RAIN_BOX_COLOR: Color = Color::srgb(0.25, 0.55, 0.95);
 
-/// Adds the `spawner.rain` command.
+/// Adds the `spawner.rain` command and the `rain` input action (key R drops one box).
 pub struct SpawnerModulePlugin;
 
 impl Plugin for SpawnerModulePlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<RainBoxCount>().register_command(
-            "spawner.rain",
-            "spawner.rain <count>",
-            rain_command,
-        );
+        app.init_resource::<RainBoxCount>()
+            .register_command("spawner.rain", "spawner.rain <count>", rain_command)
+            .register_action(InputAction {
+                id: "rain",
+                command_line: "spawner.rain 1",
+                default_keys: &[InputKey::R],
+            });
     }
 }
 

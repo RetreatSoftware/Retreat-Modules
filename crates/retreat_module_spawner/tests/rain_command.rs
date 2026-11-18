@@ -88,3 +88,13 @@ fn counts_outside_the_allowed_range_are_errors() {
         "a failed command spawns nothing"
     );
 }
+
+#[test]
+fn the_rain_action_is_bound_to_r_and_runs_one_box() {
+    use retreat_engine_api::{InputActions, InputKey};
+
+    let app = module_app(0);
+    let actions = app.world().resource::<InputActions>();
+    assert_eq!(actions.keys("rain"), vec![InputKey::R]);
+    assert_eq!(actions.command_line("rain"), Some("spawner.rain 1"));
+}
