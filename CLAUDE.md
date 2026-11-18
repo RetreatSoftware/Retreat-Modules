@@ -8,7 +8,16 @@ The root `../CLAUDE.md` also applies here. This file may narrow its scope (see "
 
 ## Status
 
-Early stage. No code exists yet. Do not implement anything beyond what is explicitly requested.
+Early stage. One module exists: `crates/retreat_module_spawner` (`spawner.rain <count>`), the first module and the template for the next ones. Do not implement anything beyond what is explicitly requested.
+
+## Layout and decisions
+
+- **One Cargo workspace** (`Cargo.toml` at the root), one crate per module under `crates/`, named `retreat_module_<id>`.
+- **Dependencies:** only `bevy` (the exact version the engine pins, `0.20.1`) and the engine's contract crate `retreat_engine_api`, as a git dependency on the public `Retreat-Engine-3D` repository. `Cargo.lock` pins the commit; `cargo update -p retreat_engine_api` takes a newer one. Never depend on `retreat_engine` (engine internals), on a physics library, or on another module.
+- **A module is a Bevy plugin** (`<Name>ModulePlugin`) that registers its commands with `AppCommandExt::register_command`. Every user-visible action is a command (`area.verb`, area = module id). Randomness comes only from `SimulationRng`. Physics objects are `retreat_engine_api::PhysicsBody` descriptions on named root entities (the engine creates the real bodies in a deterministic order).
+- **Manifest:** `[package.metadata.retreat]` in each module's `Cargo.toml`, read later by Retreat-Forge. Provisional schema: `id`, `display_name`, `summary`, `plugin` (the plugin type path), `commands` (ids it registers), `requires` (engine capabilities, e.g. `physics`), `engine_api` (compatible `retreat_engine_api` semver requirement).
+- **Tests use only Bevy and the contract crate** (`MinimalPlugins` + `CommandRegistry` + `SimulationRng` + the plugin, run commands with `run_command_line`). The rendered and simulated result is checked in the engine sandbox, which adds the module (`Retreat-Engine-3D/scripts/verify/module_<id>.cmds`).
+- **CI** (`.github/workflows/ci.yml`): fmt, clippy with warnings as errors, tests, and a `wasm32-unknown-unknown` check.
 
 ## Ecosystem context
 
