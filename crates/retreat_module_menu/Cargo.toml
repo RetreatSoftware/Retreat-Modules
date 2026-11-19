@@ -1,0 +1,21 @@
+[package]
+name = "retreat_module_menu"
+description = "Retreat module: a pause menu (a UI toolkit panel) toggled with Escape."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+bevy.workspace = true
+retreat_engine_api.workspace = true
+
+# Module manifest (schema in Retreat-Modules/CLAUDE.md).
+[package.metadata.retreat]
+id = "menu"
+display_name = "Pause menu"
+summary = "A centered pause menu with Resume, Reset boxes and Quit, toggled with Escape."
+plugin = "retreat_module_menu::MenuModulePlugin"
+commands = ["menu.toggle"]
+actions = ["menu_toggle"]
+requires = ["input", "ui"]
+engine_api = "0.1"
