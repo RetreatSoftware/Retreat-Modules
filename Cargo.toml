@@ -20,8 +20,12 @@ bevy = "0.20.1"
 retreat_engine_api = { git = "https://github.com/RetreatSoftware/Retreat-Engine-3D" }
 
 # Same build profiles as the engine: Bevy is slow unoptimized.
+# `debug = "line-tables-only"`: full debug info made each test binary carry a ~1 GB .pdb and
+# `target/` reach 28 GB. Do not set it back to `true`.
 [profile.dev]
 opt-level = 1
+debug = "line-tables-only"
 
 [profile.dev.package."*"]
 opt-level = 3
+debug = false
