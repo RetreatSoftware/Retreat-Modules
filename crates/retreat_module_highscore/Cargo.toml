@@ -1,0 +1,20 @@
+[package]
+name = "retreat_module_highscore"
+description = "Retreat module: a score that can be saved and loaded (decides what is saved; the engine stores it)."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+bevy.workspace = true
+retreat_engine_api.workspace = true
+
+# Module manifest (schema in Retreat-Modules/CLAUDE.md).
+[package.metadata.retreat]
+id = "highscore"
+display_name = "High score"
+summary = "Keeps a score and saves and loads it as a versioned document."
+plugin = "retreat_module_highscore::HighscoreModulePlugin"
+commands = ["score.add", "score.reset", "score.save", "score.load", "score.show"]
+requires = ["storage"]
+engine_api = "0.1"

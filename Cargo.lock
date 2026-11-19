@@ -4697,14 +4697,23 @@ checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
 [[package]]
 name = "retreat_engine_api"
 version = "0.1.0"
-source = "git+https://github.com/RetreatSoftware/Retreat-Engine-3D#0c048129b9b3ee11c90b824ca02d64e53e44684a"
+source = "git+https://github.com/RetreatSoftware/Retreat-Engine-3D#3dae637cac3e55178d9d90a68b65dc7d42a6087e"
 dependencies = [
  "bevy",
  "retreat_rng",
+ "serde_json",
 ]
 
 [[package]]
 name = "retreat_module_fox_walk"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "retreat_engine_api",
+]
+
+[[package]]
+name = "retreat_module_highscore"
 version = "0.1.0"
 dependencies = [
  "bevy",
