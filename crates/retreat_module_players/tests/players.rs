@@ -4,7 +4,8 @@
 use bevy::prelude::*;
 use retreat_engine_api::{
     CommandRegistry, InputActions, InputKey, NetAllowedCommands, NetClientJoined, NetClientLeft,
-    NetCommandSender, NetInputQueue, PhysicsBody, PhysicsVelocityChange, run_command_line,
+    NetCommandSender, NetInputQueue, PhysicsBody, PhysicsVelocityChange, RemovePhysicsBody,
+    run_command_line,
 };
 use retreat_module_players::{
     HELD_MOVE_PER_TICK, MAX_MOVE_PER_COMMAND, PlayersModulePlugin, player_name, spawn_position,
@@ -52,7 +53,8 @@ fn a_joining_client_gets_a_body_at_its_spawn_point_and_a_leaving_client_loses_it
     app.world_mut()
         .write_message(NetClientLeft { client_id: 2 });
     tick(&mut app);
-    assert!(player(&mut app, 2).is_none());
+    // Removal is deferred to the engine: the body asks to be removed instead of being despawned.
+    assert!(app.world().entity(body).contains::<RemovePhysicsBody>());
 }
 
 #[test]

@@ -2,7 +2,7 @@
 //!
 //! The module never touches the transport, Rapier or any platform code; it uses only the contract:
 //! - **Server:** on `NetClientJoined` it spawns the dynamic cube `player_<id>` at a spawn point chosen
-//!   from the id; on `NetClientLeft` it despawns it. (Other machines learn about the body through the
+//!   from the id; on `NetClientLeft` it removes it (`RemovePhysicsBody`: deferred destruction, so client rollbacks stay possible). (Other machines learn about the body through the
 //!   engine's state replication, and lose it the same way.)
 //! - **Command** `player.move <x> <z>`: adds a velocity change of `(x, 0, z)` to the body of the player
 //!   who sent the command (`NetCommandSender`); the server allows clients to send it
@@ -16,7 +16,8 @@ use bevy::prelude::*;
 use retreat_engine_api::{
     AppCommandExt, AppInputExt, AppNetExt, CommandArgs, CommandOutcome, CommandResult, HELD_ONLY,
     InputAction, InputActionSystems, InputActions, InputKey, NetClientJoined, NetClientLeft,
-    NetCommandSender, NetInputQueue, PhysicsBody, PhysicsVelocityChange, add_net_contract,
+    NetCommandSender, NetInputQueue, PhysicsBody, PhysicsVelocityChange, RemovePhysicsBody,
+    add_net_contract,
 };
 
 /// Largest velocity change per axis one `player.move` may apply (units per second).
@@ -115,7 +116,8 @@ fn remove_players_of_left_clients(
         let wanted = player_name(message.client_id);
         for (entity, name) in &players {
             if name.as_str() == wanted {
-                commands.entity(entity).despawn();
+                // Retired, not despawned: a client may still rewind past this tick.
+                commands.entity(entity).insert(RemovePhysicsBody);
             }
         }
     }
