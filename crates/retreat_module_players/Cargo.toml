@@ -1,0 +1,21 @@
+[package]
+name = "retreat_module_players"
+description = "Retreat module: one player body per connected client, moved with held keys (networked play)."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+bevy.workspace = true
+retreat_engine_api.workspace = true
+
+# Module manifest (schema in Retreat-Modules/CLAUDE.md).
+[package.metadata.retreat]
+id = "players"
+display_name = "Players"
+summary = "Spawns a player body when a client joins, removes it when the client leaves, and moves it from held keys."
+plugin = "retreat_module_players::PlayersModulePlugin"
+commands = ["player.move"]
+actions = ["player_left", "player_right", "player_forward", "player_back"]
+requires = ["input", "physics", "networking"]
+engine_api = "0.1"
