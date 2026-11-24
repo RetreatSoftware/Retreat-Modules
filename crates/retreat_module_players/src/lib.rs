@@ -22,11 +22,11 @@ use retreat_engine_api::{
 /// Largest velocity change per axis one `player.move` may apply (units per second).
 pub const MAX_MOVE_PER_COMMAND: f32 = 0.5;
 /// Velocity change per axis a client queues each tick while a key is held (units per second per tick).
-pub const HELD_MOVE_PER_TICK: f32 = 0.25;
+pub const HELD_MOVE_PER_TICK: f32 = 0.03125;
 /// Height at which players appear.
 const SPAWN_HEIGHT: f32 = 0.6;
-/// Distance between neighbouring spawn points.
-const SPAWN_SPACING: f32 = 2.0;
+/// Distance between neighbouring spawn points (small enough that a row fits on the sandbox ground).
+const SPAWN_SPACING: f32 = 1.5;
 /// Spawn points per row.
 const SPAWN_PER_ROW: u32 = 5;
 
@@ -199,7 +199,7 @@ mod tests {
             assert!(
                 points[index + 1..]
                     .iter()
-                    .all(|other| other.distance(*point) > 1.5)
+                    .all(|other| other.distance(*point) > 1.0)
             );
             assert_eq!(point.y, SPAWN_HEIGHT);
         }
