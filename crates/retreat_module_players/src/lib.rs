@@ -199,8 +199,8 @@ mod tests {
 
     #[test]
     fn held_move_is_strong_enough_to_slide_and_gentle_enough_to_stay_on_the_ground() {
-        assert!((0.15..=0.2).contains(&HELD_MOVE_PER_TICK));
-        assert!(HELD_MOVE_PER_TICK <= MAX_MOVE_PER_COMMAND);
+        const { assert!(HELD_MOVE_PER_TICK >= 0.15 && HELD_MOVE_PER_TICK <= 0.2) };
+        const { assert!(HELD_MOVE_PER_TICK <= MAX_MOVE_PER_COMMAND) };
     }
 
     #[test]
