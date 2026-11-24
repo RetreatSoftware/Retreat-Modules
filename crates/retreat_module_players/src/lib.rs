@@ -23,7 +23,10 @@ use retreat_engine_api::{
 /// Largest velocity change per axis one `player.move` may apply (units per second).
 pub const MAX_MOVE_PER_COMMAND: f32 = 0.5;
 /// Velocity change per axis a client queues each tick while a key is held (units per second per tick).
-pub const HELD_MOVE_PER_TICK: f32 = 0.03125;
+/// Measured in the `players` network scenario: 0.03125 never overcomes friction (the cube does not
+/// move), 0.125 moves it 0.26 m in a 64-tick hold, 0.1875 moves it 0.63 m and it stays on the ground,
+/// 0.25 made bodies fly off the sandbox ground. Keep it between 0.15 and 0.2.
+pub const HELD_MOVE_PER_TICK: f32 = 0.1875;
 /// Height at which players appear.
 const SPAWN_HEIGHT: f32 = 0.6;
 /// Distance between neighbouring spawn points (small enough that a row fits on the sandbox ground).
@@ -192,6 +195,12 @@ mod tests {
             (HELD_MOVE_PER_TICK, -HELD_MOVE_PER_TICK)
         );
         assert_eq!(held_movement(true, true, true, true), (0.0, 0.0));
+    }
+
+    #[test]
+    fn held_move_is_strong_enough_to_slide_and_gentle_enough_to_stay_on_the_ground() {
+        assert!((0.15..=0.2).contains(&HELD_MOVE_PER_TICK));
+        assert!(HELD_MOVE_PER_TICK <= MAX_MOVE_PER_COMMAND);
     }
 
     #[test]
