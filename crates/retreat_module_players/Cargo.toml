@@ -11,6 +11,7 @@ retreat_engine_api.workspace = true
 
 # Module manifest (schema in Retreat-Modules/CLAUDE.md).
 [package.metadata.retreat]
+manifest_version = 1
 id = "players"
 display_name = "Players"
 summary = "Spawns a player body when a client joins, removes it when the client leaves, and moves it from held keys."
@@ -19,3 +20,5 @@ commands = ["player.move"]
 actions = ["player_left", "player_right", "player_forward", "player_back"]
 requires = ["input", "physics", "networking"]
 engine_api = "0.1"
+targets = ["native", "wasm"]
+network_role = "both"

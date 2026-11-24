@@ -11,6 +11,7 @@ retreat_engine_api.workspace = true
 
 # Module manifest (schema in Retreat-Modules/CLAUDE.md).
 [package.metadata.retreat]
+manifest_version = 1
 id = "sfx"
 display_name = "Sound effects"
 summary = "Plays effects and music on commands and key presses; the engine does the playback."
@@ -19,3 +20,4 @@ commands = ["sfx.play", "sfx.music"]
 actions = ["sfx_beep"]
 requires = ["input", "audio"]
 engine_api = "0.1"
+targets = ["native", "wasm"]

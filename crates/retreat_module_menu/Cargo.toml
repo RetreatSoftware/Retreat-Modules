@@ -11,6 +11,7 @@ retreat_engine_api.workspace = true
 
 # Module manifest (schema in Retreat-Modules/CLAUDE.md).
 [package.metadata.retreat]
+manifest_version = 1
 id = "menu"
 display_name = "Pause menu"
 summary = "A centered pause menu with Resume, Reset boxes and Quit, toggled with Escape."
@@ -19,3 +20,4 @@ commands = ["menu.toggle"]
 actions = ["menu_toggle"]
 requires = ["input", "ui"]
 engine_api = "0.1"
+targets = ["native", "wasm"]

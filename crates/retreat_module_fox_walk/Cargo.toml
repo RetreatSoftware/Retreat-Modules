@@ -11,6 +11,7 @@ retreat_engine_api.workspace = true
 
 # Module manifest (schema in Retreat-Modules/CLAUDE.md).
 [package.metadata.retreat]
+manifest_version = 1
 id = "fox_walk"
 display_name = "Fox walk"
 summary = "Chooses and blends idle, walk and run clips from a model's speed; the engine plays them."
@@ -18,3 +19,4 @@ plugin = "retreat_module_fox_walk::FoxWalkModulePlugin"
 commands = ["fox.set_speed"]
 requires = ["animation"]
 engine_api = "0.1"
+targets = ["native", "wasm"]

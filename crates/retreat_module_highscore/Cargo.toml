@@ -11,6 +11,7 @@ retreat_engine_api.workspace = true
 
 # Module manifest (schema in Retreat-Modules/CLAUDE.md).
 [package.metadata.retreat]
+manifest_version = 1
 id = "highscore"
 display_name = "High score"
 summary = "Keeps a score and saves and loads it as a versioned document."
@@ -18,3 +19,4 @@ plugin = "retreat_module_highscore::HighscoreModulePlugin"
 commands = ["score.add", "score.reset", "score.save", "score.load", "score.show"]
 requires = ["storage"]
 engine_api = "0.1"
+targets = ["native", "wasm"]

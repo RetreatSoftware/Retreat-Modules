@@ -11,6 +11,7 @@ retreat_engine_api.workspace = true
 
 # Module manifest (schema in Retreat-Modules/CLAUDE.md).
 [package.metadata.retreat]
+manifest_version = 1
 id = "orbit_camera"
 display_name = "Orbit camera"
 summary = "Rotates a game camera around its target while the orbit keys are held."
@@ -19,3 +20,4 @@ commands = ["orbit.start", "orbit.stop", "orbit.set_angle"]
 actions = ["orbit_left", "orbit_right"]
 requires = ["input", "camera"]
 engine_api = "0.1"
+targets = ["native", "wasm"]

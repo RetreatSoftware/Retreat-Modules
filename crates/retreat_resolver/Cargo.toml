@@ -1,0 +1,10 @@
+[package]
+name = "retreat_resolver"
+description = "Retreat module resolver: turns a module selection into a build plan or a plain-language error. Pure library (no Bevy, no Forge)."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+retreat_manifest = { path = "../retreat_manifest" }
+semver = "1"

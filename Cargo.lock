@@ -4724,6 +4724,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "retreat_manifest"
+version = "0.1.0"
+dependencies = [
+ "semver",
+ "serde",
+ "toml",
+]
+
+[[package]]
 name = "retreat_module_fox_walk"
 version = "0.1.0"
 dependencies = [
@@ -4777,6 +4786,14 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "retreat_engine_api",
+]
+
+[[package]]
+name = "retreat_resolver"
+version = "0.1.0"
+dependencies = [
+ "retreat_manifest",
+ "semver",
 ]
 
 [[package]]

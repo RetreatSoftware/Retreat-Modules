@@ -9,17 +9,10 @@ publish.workspace = true
 bevy.workspace = true
 retreat_engine_api.workspace = true
 
-# The module manifest, read by Retreat-Forge (later) to select and validate modules. Provisional
-# schema, documented in Retreat-Modules/CLAUDE.md:
-#   id            unique module id (snake_case)
-#   display_name  shown in Forge
-#   summary       one sentence
-#   plugin        the Bevy plugin type a game adds
-#   commands      command ids the module registers (each `area.verb`, unique across modules)
-#   requires      engine capabilities it needs
-#   actions       input action ids it registers (unique across modules)
-#   engine_api    compatible retreat_engine_api version (semver requirement)
+# Module manifest v1 (schema in Retreat-Modules/CLAUDE.md and crates/retreat_manifest/src/manifest.rs);
+# checked against the source by `cargo run -p retreat_manifest --bin check_manifests`.
 [package.metadata.retreat]
+manifest_version = 1
 id = "spawner"
 display_name = "Spawner"
 summary = "Drops physics boxes from the sky."
@@ -28,3 +21,4 @@ commands = ["spawner.rain"]
 requires = ["physics", "input"]
 actions = ["rain"]
 engine_api = "0.1"
+targets = ["native", "wasm"]
