@@ -1,77 +1,44 @@
-//! Moving every character: ground detection, then the movement rule.
+//! Moving every character with the movement rule.
 
 use crate::config::MovementConfig;
 use crate::motion::{MovementStep, step_movement};
 use crate::state::MovementState;
 use bevy::prelude::*;
-use retreat_engine_api::{
-    PhysicsShape, PhysicsVelocity, PhysicsVelocitySet, RetiredEntity, ShapeCast, cast_shape,
-};
-use retreat_gameplay_api::{
-    CHARACTER_CAPSULE_HALF_HEIGHT, CHARACTER_RADIUS, Health, LookAngles, PlayerId,
-};
+use retreat_engine_api::{CharacterGround, PhysicsVelocity, PhysicsVelocitySet, RetiredEntity};
+use retreat_gameplay_api::{Health, LookAngles, PlayerId};
 
-/// The ground probe is a ball a little narrower than the capsule, so walls are not ground.
-const PROBE_RADIUS: f32 = CHARACTER_RADIUS * 0.9;
-/// The probe's travel when the character rests on the ground.
-const RESTING_DISTANCE: f32 = CHARACTER_RADIUS - PROBE_RADIUS;
-/// How far above its resting height a character still counts as standing.
-const GROUND_REACH: f32 = 0.05;
-
-pub(crate) fn move_characters(world: &mut World) {
-    let tick = world.resource::<Time<Fixed>>().timestep();
-    let config = world.resource::<MovementConfig>().clone();
-    let mut characters = world.query_filtered::<(
+type Characters<'w, 's> = Query<
+    'w,
+    's,
+    (
         Entity,
-        &PlayerId,
-        &MovementState,
-        &LookAngles,
-        &Transform,
-        &PhysicsVelocity,
-        Option<&Health>,
-    ), Without<RetiredEntity>>();
-    let mut found: Vec<_> = characters
-        .iter(world)
-        .map(
-            |(entity, player, state, look, transform, velocity, health)| {
-                (
-                    *player,
-                    entity,
-                    *state,
-                    look.yaw,
-                    transform.translation,
-                    velocity.linear,
-                    health.is_none_or(Health::is_alive),
-                )
-            },
-        )
-        .collect();
-    // By player id: query order can change after a rewind.
-    found.sort_by_key(|(player, ..)| *player);
-    for (_, entity, mut state, yaw, center, velocity, can_act) in found {
-        let probe = cast_shape(
-            world,
-            &ShapeCast {
-                shape: PhysicsShape::Ball {
-                    radius: PROBE_RADIUS,
-                },
-                origin: center - Vec3::Y * CHARACTER_CAPSULE_HALF_HEIGHT,
-                rotation: Quat::IDENTITY,
-                direction: Vec3::NEG_Y,
-                max_distance: RESTING_DISTANCE + GROUND_REACH,
-                exclude: vec![entity],
-            },
-        );
+        &'static PlayerId,
+        &'static mut MovementState,
+        &'static LookAngles,
+        &'static PhysicsVelocity,
+        Option<&'static CharacterGround>,
+        Option<&'static Health>,
+    ),
+    Without<RetiredEntity>,
+>;
+
+pub(crate) fn move_characters(
+    mut characters: Characters,
+    config: Res<MovementConfig>,
+    time: Res<Time<Fixed>>,
+    mut commands: Commands,
+) {
+    for (entity, _, mut state, look, velocity, ground, health) in &mut characters {
         let step = MovementStep {
-            velocity,
-            ground_gap: probe.map(|hit| hit.distance - RESTING_DISTANCE),
-            yaw,
-            can_act,
-            tick,
+            velocity: velocity.linear,
+            grounded: ground.is_some_and(|ground| ground.grounded),
+            yaw: look.yaw,
+            can_act: health.is_none_or(Health::is_alive),
+            tick: time.timestep(),
         };
-        let next = step_movement(&mut state, step, &config);
-        world
-            .entity_mut(entity)
-            .insert((state, PhysicsVelocitySet(next)));
+        let mut next = *state;
+        let wanted = step_movement(&mut next, step, &config);
+        state.set_if_neq(next);
+        commands.entity(entity).insert(PhysicsVelocitySet(wanted));
     }
 }

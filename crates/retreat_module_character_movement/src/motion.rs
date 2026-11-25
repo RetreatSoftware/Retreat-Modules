@@ -7,16 +7,13 @@ use bevy::prelude::*;
 use retreat_gameplay_api::{horizontal_axes, ticks_from_seconds};
 use std::time::Duration;
 
-/// Ticks after a jump in which the ground is ignored.
-const JUMP_GROUND_IGNORE_TICKS: u32 = 8;
-
 /// What one tick of movement starts from.
 #[derive(Debug, Clone, Copy)]
 pub struct MovementStep {
     /// The body's velocity as physics left it.
     pub velocity: Vec3,
-    /// How far above its resting height the character is, when the ground is within reach.
-    pub ground_gap: Option<f32>,
+    /// Standing on walkable ground, as the engine's stepping reported it.
+    pub grounded: bool,
     pub yaw: f32,
     /// False for the dead: they fall and slide to a stop but do not steer.
     pub can_act: bool,
@@ -40,9 +37,8 @@ pub fn step_movement(
     state.jump_was_down = input.jump;
     state.dash_was_down = input.dash;
 
-    state.ticks_ignoring_ground = state.ticks_ignoring_ground.saturating_sub(1);
     state.dash_cooldown_ticks = state.dash_cooldown_ticks.saturating_sub(1);
-    state.grounded = step.ground_gap.is_some() && state.ticks_ignoring_ground == 0;
+    state.grounded = step.grounded;
     if state.grounded {
         state.air_dash_used = false;
     }
@@ -87,7 +83,6 @@ pub fn step_movement(
         // The speed that reaches `jump_height` against gravity.
         vertical = ops::sqrt(2.0 * config.gravity * config.jump_height);
         state.grounded = false;
-        state.ticks_ignoring_ground = JUMP_GROUND_IGNORE_TICKS;
         flat = accelerate(
             flat,
             wish_direction,
@@ -97,8 +92,8 @@ pub fn step_movement(
             dt,
         );
     } else if state.grounded {
-        // Held onto the ground, so walking down a step does not become falling.
-        vertical = -(step.ground_gap.unwrap_or(0.0).max(0.0) / dt).min(config.max_fall_speed);
+        // The engine's stepping lays this along the ground and down steps.
+        vertical = 0.0;
         flat = apply_friction(flat, config, dt);
         flat = accelerate(
             flat,

@@ -2,8 +2,8 @@
 
 use bevy::prelude::*;
 use retreat_engine_api::{
-    AnalogInput, CastHit, CommandRegistry, CommandResult, InputActions, NetInputQueue,
-    NetLocalClient, PhysicsBody, PhysicsCaster, PhysicsVelocitySet, RayCast, ShapeCast,
+    AnalogInput, CharacterGround, CharacterStepping, CommandRegistry, CommandResult, InputActions,
+    NetInputQueue, NetLocalClient, PhysicsBody, PhysicsTeleport, PhysicsVelocitySet,
     run_command_line,
 };
 use retreat_gameplay_api::*;
@@ -11,28 +11,10 @@ use retreat_module_character_movement::{
     ADVANCE_AXIS, CharacterMovementModulePlugin, MovementState,
 };
 
-fn flat_ground(_: &mut World, cast: &ShapeCast) -> Option<CastHit> {
-    Some(CastHit {
-        entity: Entity::PLACEHOLDER,
-        name: "ground".to_string(),
-        distance: 0.035,
-        point: cast.origin,
-        normal: Vec3::Y,
-    })
-}
-
-fn no_ray(_: &mut World, _: &RayCast) -> Option<CastHit> {
-    None
-}
-
 fn app() -> App {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
         .init_resource::<CommandRegistry>()
-        .insert_resource(PhysicsCaster {
-            ray: no_ray,
-            shape: flat_ground,
-        })
         .add_plugins(CharacterMovementModulePlugin);
     app
 }
@@ -43,6 +25,11 @@ fn character(app: &mut App, id: u32) -> Entity {
             Name::new(player_entity_name(PlayerId(id))),
             PlayerId(id),
             PhysicsBody::character(CHARACTER_CAPSULE_HALF_HEIGHT, CHARACTER_RADIUS),
+            // As the engine would report on flat ground.
+            CharacterGround {
+                grounded: true,
+                normal: Vec3::Y,
+            },
         ))
         .id()
 }
@@ -146,4 +133,58 @@ fn bad_input_is_refused() {
         let error = run(&mut app, line).expect_err(line).to_string();
         assert!(error.contains(expected), "{line}: {error}");
     }
+}
+
+#[test]
+fn a_character_gets_the_engines_step_handling() {
+    let mut app = app();
+    let entity = character(&mut app, 0);
+    tick(&mut app);
+    let stepping = app.world().get::<CharacterStepping>(entity).unwrap();
+    assert_eq!(
+        (stepping.max_step_height, stepping.max_slope_degrees),
+        (0.35, 45.0)
+    );
+}
+
+#[test]
+fn a_respawn_teleports_the_character_and_ends_its_dash() {
+    let mut app = app();
+    let entity = character(&mut app, 0);
+    let other = character(&mut app, 1);
+    tick(&mut app);
+    app.world_mut()
+        .get_mut::<MovementState>(entity)
+        .unwrap()
+        .dash_cooldown_ticks = 50;
+    app.world_mut().write_message(PlayerRespawned {
+        player: PlayerId(0),
+        spawn: SpawnPoint {
+            feet: Vec3::new(3.0, 0.0, 4.0),
+            yaw: 1.5,
+        },
+    });
+    tick(&mut app);
+    let world = app.world();
+    assert_eq!(
+        world.get::<PhysicsTeleport>(entity).map(|t| t.0),
+        Some(Vec3::new(3.0, 0.9, 4.0))
+    );
+    assert!(world.get::<PhysicsVelocitySet>(entity).is_none());
+    assert_eq!(world.get::<LookAngles>(entity).unwrap().yaw, 1.5);
+    let state = world.get::<MovementState>(entity).unwrap();
+    assert_eq!(state.dash_cooldown_ticks, 0);
+    assert!(world.get::<PhysicsTeleport>(other).is_none());
+}
+
+#[test]
+fn a_view_can_be_asserted_the_short_way_round() {
+    let mut app = app();
+    character(&mut app, 0);
+    tick(&mut app);
+    run(&mut app, "assert.movement_look 0 6.2831 0.01").unwrap();
+    let error = run(&mut app, "assert.movement_look 0 1 0.01")
+        .expect_err("different")
+        .to_string();
+    assert!(error.contains("looks towards yaw 0"), "{error}");
 }

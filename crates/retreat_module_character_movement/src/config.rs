@@ -26,6 +26,10 @@ pub struct MovementConfig {
     pub mouse_sensitivity: f32,
     /// Furthest a player can look up or down.
     pub max_pitch: f32,
+    /// Highest step climbed and walked down without leaving the ground.
+    pub step_height: f32,
+    /// Steepest ground a character walks on.
+    pub max_slope_degrees: f32,
 }
 
 impl Default for MovementConfig {
@@ -46,6 +50,8 @@ impl Default for MovementConfig {
             dash_cooldown_seconds: 3.0,
             mouse_sensitivity: 0.0022,
             max_pitch: 85.0_f32.to_radians(),
+            step_height: 0.35,
+            max_slope_degrees: 45.0,
         }
     }
 }
@@ -69,10 +75,15 @@ impl MovementConfig {
             ("dash_cooldown_seconds", self.dash_cooldown_seconds),
             ("mouse_sensitivity", self.mouse_sensitivity),
             ("max_pitch", self.max_pitch),
+            ("step_height", self.step_height),
+            ("max_slope_degrees", self.max_slope_degrees),
         ] {
             if !(value.is_finite() && value >= 0.0) {
                 return Err(format!("{field} must be 0 or more, got {value}"));
             }
+        }
+        if self.max_slope_degrees >= 90.0 {
+            return Err("max_slope_degrees must be below 90".to_string());
         }
         if self.max_pitch >= std::f32::consts::FRAC_PI_2 {
             return Err("max_pitch must be below a quarter turn".to_string());

@@ -10,6 +10,7 @@
 //!
 //! To add a map: write a `<name>_map.rs` returning [`ArenaMap`] and list it in [`MAPS`].
 
+mod floor;
 mod graybox_map;
 mod load_command;
 mod map;

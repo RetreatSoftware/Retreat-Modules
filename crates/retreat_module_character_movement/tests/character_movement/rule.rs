@@ -32,7 +32,7 @@ impl Body {
         self.state.input = input;
         let step = MovementStep {
             velocity: self.velocity,
-            ground_gap: (self.height <= 0.05).then_some(self.height),
+            grounded: self.height <= 0.0 && self.velocity.y <= 0.0,
             yaw: 0.0,
             can_act,
             tick: TICK,
@@ -152,14 +152,6 @@ fn one_dash_per_time_in_the_air() {
     body.height = 0.0;
     body.run(PlayerInput::default(), 200);
     assert!(body.tick(dash).z < -17.0);
-}
-
-#[test]
-fn the_ground_holds_a_character_down_a_step() {
-    let mut body = Body::standing();
-    body.height = 0.04;
-    assert!(body.tick(forward()).y < 0.0);
-    assert_eq!(body.height, 0.0);
 }
 
 #[test]

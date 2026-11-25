@@ -12,6 +12,7 @@ fn module_app() -> App {
     app.add_plugins((MinimalPlugins, AssetPlugin::default()))
         .init_asset::<Mesh>()
         .init_asset::<StandardMaterial>()
+        .init_asset::<Image>()
         .init_resource::<CommandRegistry>()
         .add_plugins(ArenaModulePlugin);
     app

@@ -117,6 +117,28 @@ pub(crate) fn assert_near_command(world: &mut World, args: &CommandArgs) -> Comm
     Ok(CommandOutcome::Continue)
 }
 
+/// The view the simulation has for a player (a script waits on it to hear another client).
+pub(crate) fn assert_look_command(world: &mut World, args: &CommandArgs) -> CommandResult {
+    args.expect_count(3)?;
+    let player = PlayerId(args.parse(0, "player")?);
+    let expected = finite(args, 1, "yaw")?;
+    let tolerance = finite(args, 2, "tolerance")?;
+    let mut players = world.query_filtered::<(&PlayerId, &LookAngles), Without<RetiredEntity>>();
+    let Some((_, look)) = players.iter(world).find(|(found, _)| **found == player) else {
+        return Err(args.failure(format!("player {} has no view", player.0)));
+    };
+    // The shorter way round the circle.
+    let turn = std::f32::consts::TAU;
+    let difference = (look.yaw - expected).rem_euclid(turn);
+    if difference.min(turn - difference) > tolerance {
+        return Err(args.failure(format!(
+            "player {} looks towards yaw {}, expected {expected} within {tolerance}",
+            player.0, look.yaw
+        )));
+    }
+    Ok(CommandOutcome::Continue)
+}
+
 fn local_player(world: &World) -> Option<PlayerId> {
     local_player_id(
         *world.resource::<NetLocalClient>(),

@@ -6,23 +6,26 @@
 //!    tick's [`PlayerInput`]. A network client queues it as a `movement.input` line, which the
 //!    engine runs on the client (prediction), on the server and in replays. Without a network it is
 //!    stored directly.
-//! 2. `move_characters` (every player, in id order) finds the ground with a ball cast and sets the
-//!    body's velocity with the pure rule [`step_movement`]. The dead do not steer.
+//! 2. `move_characters` (every player, in id order) sets the body's velocity with the pure rule
+//!    [`step_movement`]. The engine's stepping (`CharacterStepping`) then walks it over stairs and
+//!    slopes and reports the ground. The dead do not steer.
+//! 3. A player that respawned (`PlayerRespawned`) is teleported to its spawn point, facing its way.
 //!
-//! Stairs: there is no step-up rule; the rounded bottom of the capsule rides up low risers (0.1 m
-//! on the arena). Slopes are not handled (no map has one). Numbers: [`MovementConfig`].
+//! All three run after the gameplay sets, so the tick's spawns, deaths and respawns are known.
+//! Numbers: [`MovementConfig`].
 
 mod commands;
 mod config;
 mod input;
 mod motion;
+mod respawn;
 mod simulate;
 mod state;
 
 use bevy::prelude::*;
 use retreat_engine_api::{
     AppAxisExt, AppCommandExt, AppInputExt, AppNetExt, AppNetStateExt, HELD_ONLY, InputAction,
-    InputActionSystems, InputAxis, InputKey, PhysicsControlSystems,
+    InputAxis, InputKey, PhysicsControlSystems,
 };
 use retreat_gameplay_api::{GameplaySystems, add_gameplay_contract};
 
@@ -74,6 +77,11 @@ impl Plugin for CharacterMovementModulePlugin {
                 "assert.movement_near <player> <feet x> <feet y> <feet z> <tolerance>",
                 commands::assert_near_command,
             )
+            .register_command(
+                "assert.movement_look",
+                "assert.movement_look <player> <yaw> <tolerance>",
+                commands::assert_look_command,
+            )
             .register_action(held("movement_forward", &[InputKey::W]))
             .register_action(held("movement_back", &[InputKey::S]))
             .register_action(held("movement_left", &[InputKey::A]))
@@ -105,11 +113,15 @@ impl Plugin for CharacterMovementModulePlugin {
             .add_systems(
                 FixedUpdate,
                 (
-                    state::attach_state.in_set(GameplaySystems::Act),
-                    input::send_input.after(InputActionSystems),
+                    state::attach_state,
+                    input::send_input,
                     simulate::move_characters.in_set(PhysicsControlSystems),
+                    respawn::teleport_respawned.in_set(PhysicsControlSystems),
                 )
-                    .chain(),
+                    .chain()
+                    // Spawns, deaths and respawns of this tick are decided (the sets also run
+                    // after the tick's input).
+                    .after(GameplaySystems::Respawned),
             );
     }
 }

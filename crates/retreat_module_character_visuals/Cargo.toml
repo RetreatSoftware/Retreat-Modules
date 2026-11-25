@@ -1,0 +1,24 @@
+[package]
+name = "retreat_module_character_visuals"
+description = "Retreat module: how player characters look: model, color per player, facing, animation by what they do, smooth drawing of other players."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+bevy.workspace = true
+retreat_engine_api.workspace = true
+retreat_gameplay_api.workspace = true
+
+# Module manifest (schema in Retreat-Modules/CLAUDE.md).
+[package.metadata.retreat]
+manifest_version = 1
+id = "character_visuals"
+display_name = "Character visuals"
+summary = "Animated, colored characters that face where they move; other players are drawn smoothly."
+plugin = "retreat_module_character_visuals::CharacterVisualsModulePlugin"
+commands = ["assert.visuals_state", "assert.visuals_facing", "assert.visuals_color"]
+requires = ["animation", "physics", "networking"]
+engine_api = "0.1"
+targets = ["native", "wasm"]
+network_role = "client"

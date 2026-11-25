@@ -1,12 +1,7 @@
-# character_visuals
+# character_visuals (built)
 
-What a character looks like: capsule or fox, one color per player, animation. Client only.
+Rules: `crates/retreat_module_character_visuals/src/lib.rs`. Data: `CharacterVisualsConfig` (model, clips,
+colors, thresholds, smoothing); the default is the engine's plain shape with its facing.
+Commands: `assert.visuals_state|facing|color` (looks follow shared state, so nothing is commanded).
 
-- **Commands:** `visuals.model <capsule|fox>`, `visuals.color <player> <r> <g> <b>`.
-- **Actions:** none.
-- **Reads:** `PlayerId`, `Health` (hide the dead), character velocity, `LookAngles`.
-- **Writes:** child visuals, `AnimationPlayback` (fox: idle, walk, run from speed; its own pure rule,
-  not the `fox_walk` module's).
-- **Config (default):** model capsule; colors by player id modulo 8: red, blue, green, yellow, purple,
-  orange, cyan, white.
-- **Waits for:** C5, C6.
+Not built: hiding or animating the dead, blending between clips, turning smoothly.

@@ -1,6 +1,7 @@
 //! `arena.load <map>`.
 
 use crate::MAPS;
+use crate::floor::floor_tiles;
 use crate::map::{MapPiece, PieceKind, validate_map};
 use bevy::prelude::*;
 use retreat_engine_api::{
@@ -64,13 +65,10 @@ fn spawn_piece(world: &mut World, piece: &MapPiece) {
     let mesh = world
         .resource_mut::<Assets<Mesh>>()
         .add(Cuboid::from_size(size));
+    let surface = piece_surface(world, piece.kind);
     let material = world
         .resource_mut::<Assets<StandardMaterial>>()
-        .add(StandardMaterial {
-            base_color: graybox_color(piece.kind),
-            perceptual_roughness: 0.9,
-            ..default()
-        });
+        .add(surface);
     world.spawn((
         Name::new(piece_entity_name(&piece.name)),
         ArenaPiece(piece.kind),
@@ -85,6 +83,28 @@ fn spawn_piece(world: &mut World, piece: &MapPiece) {
         Mesh3d(mesh),
         MeshMaterial3d(material),
     ));
+}
+
+/// The material of a piece. The floor is tiled where the app has image assets.
+fn piece_surface(world: &mut World, kind: PieceKind) -> StandardMaterial {
+    let tiles = (kind == PieceKind::Floor)
+        .then(|| {
+            world
+                .get_resource_mut::<Assets<Image>>()
+                .map(|mut images| images.add(floor_tiles()))
+        })
+        .flatten();
+    StandardMaterial {
+        // A texture is multiplied by the base color, and the tiles carry their own colors.
+        base_color: if tiles.is_some() {
+            Color::WHITE
+        } else {
+            graybox_color(kind)
+        },
+        base_color_texture: tiles,
+        perceptual_roughness: 0.9,
+        ..default()
+    }
 }
 
 fn graybox_color(kind: PieceKind) -> Color {
