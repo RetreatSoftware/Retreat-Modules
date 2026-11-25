@@ -15,6 +15,9 @@ pub(crate) struct HitMarker {
     /// The hit count last seen; `None` before the player has a weapon.
     seen: Option<u32>,
     ticks_left: u32,
+    /// Started and not yet on screen: a frame can cover more ticks than the marker lasts, and it
+    /// must still be seen for one frame.
+    unshown: bool,
 }
 
 /// Starts the marker when the server counts a new hit. In ticks, so a script sees the same thing.
@@ -40,6 +43,7 @@ pub(crate) fn time_hit_marker(
         && now > before
     {
         marker.ticks_left = ticks_from_seconds(config.hit_marker_seconds, time.timestep()).max(1);
+        marker.unshown = true;
     }
     marker.seen = hits;
 }
@@ -60,7 +64,7 @@ pub(crate) fn show_hud(
     players: Players,
     client: Res<NetLocalClient>,
     solo: Res<SoloPlayer>,
-    marker: Res<HitMarker>,
+    mut marker: ResMut<HitMarker>,
     config: Res<CombatHudConfig>,
     time: Res<Time<Fixed>>,
     mut hud: ResMut<UiHud>,
@@ -72,10 +76,11 @@ pub(crate) fn show_hud(
             health: health.copied(),
             weapon: weapon.copied(),
             respawn: respawn.copied(),
-            hit: marker.ticks_left > 0,
+            hit: marker.ticks_left > 0 || marker.unshown,
             timestep: time.timestep(),
         }),
     );
+    marker.unshown = false;
     let texts = [
         (AMMO_WIDGET, view.ammo),
         (HIT_WIDGET, view.hit.then(|| config.hit_marker_text.clone())),

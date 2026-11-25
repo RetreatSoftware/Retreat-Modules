@@ -113,4 +113,16 @@ fn the_widgets_follow_the_local_player_and_the_hit_marker_ends() {
         frame(&mut app);
     }
     shown(&mut app, HIT_WIDGET, false);
+    // A slow frame runs more ticks than the marker lasts: it is still drawn once.
+    app.world_mut()
+        .get_mut::<WeaponStatus>(player)
+        .unwrap()
+        .hits_landed = 2;
+    for _ in 0..40 {
+        app.world_mut().run_schedule(FixedUpdate);
+    }
+    app.world_mut().run_schedule(Update);
+    shown(&mut app, HIT_WIDGET, true);
+    frame(&mut app);
+    shown(&mut app, HIT_WIDGET, false);
 }
