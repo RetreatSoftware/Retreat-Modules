@@ -1,6 +1,8 @@
 //! Who a player is and how big a player character is.
 
 use bevy::prelude::*;
+use retreat_engine_api::NetState;
+use serde::{Deserialize, Serialize};
 
 /// Most players in one match.
 pub const MAX_PLAYERS: usize = 8;
@@ -14,8 +16,14 @@ pub const CHARACTER_EYE_HEIGHT: f32 = 1.6;
 
 /// Identifies a player for the whole session; the value is the network client id. The player's
 /// character entity carries it as a component and is named [`player_entity_name`].
-#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Component, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+)]
 pub struct PlayerId(pub u32);
+
+impl NetState for PlayerId {
+    const ID: &'static str = "gameplay.player";
+}
 
 /// The entity name of a player's character: `player_<id>`.
 pub fn player_entity_name(player: PlayerId) -> String {

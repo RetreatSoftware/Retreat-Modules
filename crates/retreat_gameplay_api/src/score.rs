@@ -2,9 +2,11 @@
 
 use crate::PlayerId;
 use bevy::prelude::*;
+use retreat_engine_api::NetState;
+use serde::{Deserialize, Serialize};
 
 /// One player's line.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ScoreEntry {
     pub player: PlayerId,
     /// What ranks players; may be negative.
@@ -24,11 +26,16 @@ impl ScoreEntry {
     }
 }
 
-/// Every player's score. Owned by the match module; others only read it.
-#[derive(Resource, Debug, Clone, Default, PartialEq, Eq)]
+/// Every player's score: a component of the match entity ([`crate::MATCH_ENTITY_NAME`]). Owned by
+/// the match module; others only read it.
+#[derive(Component, Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Scoreboard {
     /// Sorted by player id, one entry per player.
     entries: Vec<ScoreEntry>,
+}
+
+impl NetState for Scoreboard {
+    const ID: &'static str = "gameplay.scoreboard";
 }
 
 impl Scoreboard {

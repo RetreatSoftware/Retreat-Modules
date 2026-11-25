@@ -2,13 +2,15 @@
 
 use crate::PlayerId;
 use bevy::prelude::*;
+use retreat_engine_api::NetState;
+use serde::{Deserialize, Serialize};
+
+/// The entity name of the match: it carries [`MatchState`] and [`crate::Scoreboard`].
+pub const MATCH_ENTITY_NAME: &str = "match";
 
 /// Where the match is. Times are fixed simulation ticks.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MatchPhase {
-    /// No match is being run (also the value in a game without a match module): everyone may play.
-    #[default]
-    NoMatch,
     Running {
         ticks_left: u32,
     },
@@ -19,10 +21,15 @@ pub enum MatchPhase {
     },
 }
 
-/// The current phase. Owned by the match module; others only read it.
-#[derive(Resource, Debug, Clone, Copy, Default, PartialEq, Eq)]
+/// The current phase: a component of the match entity. Owned by the match module; others only read
+/// it. A game without a match module has no such entity, and then everyone may fight.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MatchState {
     pub phase: MatchPhase,
+}
+
+impl NetState for MatchState {
+    const ID: &'static str = "gameplay.match";
 }
 
 impl MatchState {

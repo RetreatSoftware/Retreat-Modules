@@ -1,0 +1,25 @@
+[package]
+name = "retreat_module_health"
+description = "Retreat module: damage, death, spawn protection and respawn at the map's spawn points."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+bevy.workspace = true
+retreat_engine_api.workspace = true
+retreat_gameplay_api.workspace = true
+serde.workspace = true
+
+# Module manifest (schema in Retreat-Modules/CLAUDE.md).
+[package.metadata.retreat]
+manifest_version = 1
+id = "health"
+display_name = "Health"
+summary = "Damage, death and respawn at spawn points, decided by the server."
+plugin = "retreat_module_health::HealthModulePlugin"
+commands = ["health.add_dummy", "health.damage", "health.kill", "assert.health", "assert.health_dead"]
+requires = ["networking"]
+engine_api = "0.1"
+targets = ["native", "wasm"]
+network_role = "both"

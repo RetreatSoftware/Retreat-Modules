@@ -17,6 +17,8 @@ Modules are independent and combinable, and are designed to integrate with Retre
 |---|---|---|
 | `retreat_module_spawner` | `spawner.rain <count>` | Drops physics boxes from the sky (first, demo module). |
 | `retreat_module_arena` | `arena.load <map>` | Builds an arena map from fixed physics boxes and publishes spawn points. |
+| `retreat_module_health` | `health.damage`, `health.kill`, `health.add_dummy` | Damage, death and respawn at spawn points. |
+| `retreat_module_match` | `match.start`, `match.end`, `match.restart` | Timed match with scoreboard, winner and restart. |
 
 Shared gameplay types live in the contract crate `retreat_gameplay_api`. Planned modules: [docs/modules](docs/modules/README.md).
 

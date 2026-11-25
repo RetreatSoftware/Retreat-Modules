@@ -76,7 +76,6 @@ fn entries_are_unique_and_removable() {
 
 #[test]
 fn only_a_finished_match_stops_combat() {
-    assert!(MatchState::default().allows_combat());
     let running = MatchState {
         phase: MatchPhase::Running { ticks_left: 1 },
     };
@@ -88,6 +87,36 @@ fn only_a_finished_match_stops_combat() {
         },
     };
     assert!(!finished.allows_combat());
+}
+
+#[test]
+fn seconds_become_whole_ticks_rounded_up() {
+    let tick = std::time::Duration::from_secs_f64(1.0 / 64.0);
+    assert_eq!(ticks_from_seconds(3.0, tick), 192);
+    assert_eq!(ticks_from_seconds(0.15, tick), 10);
+    assert_eq!(ticks_from_seconds(0.001, tick), 1);
+    for nothing in [0.0, -1.0, f32::NAN] {
+        assert_eq!(ticks_from_seconds(nothing, tick), 0);
+    }
+}
+
+#[test]
+fn the_contract_registers_the_shared_net_state() {
+    let mut app = App::new();
+    add_gameplay_contract(&mut app);
+    let registry = app
+        .world()
+        .resource::<retreat_engine_api::NetStateRegistry>();
+    let ids: Vec<&str> = registry.types().map(|kind| kind.id).collect();
+    assert_eq!(
+        ids,
+        [
+            "gameplay.health",
+            "gameplay.match",
+            "gameplay.player",
+            "gameplay.scoreboard"
+        ]
+    );
 }
 
 #[test]

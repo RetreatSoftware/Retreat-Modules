@@ -9,7 +9,7 @@
 
 [workspace]
 resolver = "3"
-members = ["crates/retreat_module_spawner", "crates/retreat_module_orbit_camera", "crates/retreat_module_sfx", "crates/retreat_module_fox_walk", "crates/retreat_module_highscore", "crates/retreat_module_menu", "crates/retreat_module_players", "crates/retreat_module_arena", "crates/retreat_gameplay_api", "crates/retreat_manifest", "crates/retreat_resolver"]
+members = ["crates/retreat_module_spawner", "crates/retreat_module_orbit_camera", "crates/retreat_module_sfx", "crates/retreat_module_fox_walk", "crates/retreat_module_highscore", "crates/retreat_module_menu", "crates/retreat_module_players", "crates/retreat_module_arena", "crates/retreat_module_health", "crates/retreat_module_match", "crates/retreat_gameplay_api", "crates/retreat_manifest", "crates/retreat_resolver"]
 
 [workspace.package]
 version = "0.1.0"
@@ -20,6 +20,8 @@ publish = false
 bevy = "0.20.1"
 retreat_engine_api = { git = "https://github.com/RetreatSoftware/Retreat-Engine-3D" }
 retreat_gameplay_api = { path = "crates/retreat_gameplay_api" }
+# For `NetState` components (rolled back and replicated module state).
+serde = { version = "1", features = ["derive"] }
 
 # Same build profiles as the engine: Bevy is slow unoptimized.
 # `debug = "line-tables-only"`: full debug info made each test binary carry a ~1 GB .pdb and

@@ -8,3 +8,5 @@ publish.workspace = true
 # A contract crate, not a module: no manifest, no plugin, no commands, no systems.
 [dependencies]
 bevy.workspace = true
+retreat_engine_api.workspace = true
+serde.workspace = true

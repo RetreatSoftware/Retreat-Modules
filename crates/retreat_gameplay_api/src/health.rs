@@ -1,13 +1,19 @@
 //! Hit points. Whole numbers, so every machine computes the same result.
 
 use bevy::prelude::*;
+use retreat_engine_api::NetState;
+use serde::{Deserialize, Serialize};
 
 /// A character's hit points. `current == 0` is the one definition of "dead": there is no separate
 /// dead flag.
-#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Health {
     current: u32,
     max: u32,
+}
+
+impl NetState for Health {
+    const ID: &'static str = "gameplay.health";
 }
 
 /// What one [`Health::apply_damage`] did.

@@ -9,10 +9,11 @@ pub const MODULE_DEPENDENCIES: &[&str] = &[
     "retreat_engine_api",
     "retreat_gameplay_api",
     "retreat_rng",
+    "serde",
 ];
 
 /// Everything a gameplay contract crate may depend on.
-pub const CONTRACT_DEPENDENCIES: &[&str] = &["bevy", "retreat_engine_api"];
+pub const CONTRACT_DEPENDENCIES: &[&str] = &["bevy", "retreat_engine_api", "serde"];
 
 /// The contract crates of this repository (`crates/<name>`).
 pub const CONTRACT_CRATES: &[&str] = &["retreat_gameplay_api"];

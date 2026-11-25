@@ -1,6 +1,6 @@
 # Planned arena modules
 
-Design notes for the modules of `ARENA_PLAN.md` (Retreat repository). Nothing here is built yet.
+Design notes for the modules of `ARENA_PLAN.md` (Retreat repository). `health` and `match` are built.
 Defaults decided 2026-11-25. When a module is built, its `<Name>Config::default()` becomes the
 source of its numbers: replace the note's table with a pointer to the code.
 
@@ -9,10 +9,10 @@ source of its numbers: replace the note's table with a pointer to the code.
 | [player_spawn](player_spawn.md) | `player_spawn` | `spawn.` | C1, C4, C6 | 1, 2 |
 | [character_movement](character_movement.md) | `character_movement` | `movement.` | C1, C2, C3, C4 | 1 |
 | [third_person_camera](third_person_camera.md) | `third_person_camera` | `shoulder.` | C2, C3 | 1 |
-| [health](health.md) | `health` | `health.` | C1, C4 | 3 |
+| [health](health.md) | `health` | `health.` | built (C4 for moving real characters) | 3 |
 | [rifle](rifle.md) | `rifle` | `rifle.` | C1, C2, C3, C7, C9 | 3 |
 | [projectile_launcher](projectile_launcher.md) | `projectile_launcher` | `launcher.` | C1, C2, C3, C8 | 4 |
-| [match](match.md) | `match` | `match.` | C1 | 5 |
+| [match](match.md) | `match` | `match.` | built | 5 |
 | [combat_hud](combat_hud.md) | `combat_hud` | `hud.` | C9 | 3, 5 |
 | [character_visuals](character_visuals.md) | `character_visuals` | `visuals.` | C5, C6 | 2 |
 
@@ -22,7 +22,7 @@ Already built: `arena` (`arena.load <map>`, maps and spawn points).
 
 | Code | Capability |
 |---|---|
-| C1 | Rollback and replication of module and contract state (components, resources, messages) |
+| C1 | Rollback and replication of module and contract state (done: `NetState` components) |
 | C2 | Mouse look and analog values in input and in networked input; cursor capture in the browser |
 | C3 | Ray and shape casts against bodies |
 | C4 | Upright character bodies: move with collision, ground check, step height, teleport |
@@ -44,5 +44,4 @@ Already built: `arena` (`arena.load <map>`, maps and spawn points).
 ## Shared types still to add to `retreat_gameplay_api` (with the first module that needs them)
 
 - `LookAngles { yaw, pitch }` component: written by movement from input; read by camera, weapons, visuals.
-- The pure spawn point choice (farthest from the nearest living player, ties by index): used by
-  `player_spawn` and `health`.
+- The pure spawn point choice (today `health`'s `choose_spawn_point`), when `player_spawn` needs it.
