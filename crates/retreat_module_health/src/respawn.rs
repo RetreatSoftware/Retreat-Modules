@@ -1,12 +1,12 @@
 //! Getting health, protection and respawn timers, and coming back to life.
 
-use crate::choose_spawn_point;
 use crate::config::HealthConfig;
 use crate::state::{RespawnTimer, SpawnProtection};
 use bevy::prelude::*;
 use retreat_engine_api::RetiredEntity;
 use retreat_gameplay_api::{
-    Health, MatchRestarted, PlayerId, PlayerRespawned, SpawnPoint, SpawnPoints, ticks_from_seconds,
+    Health, MatchRestarted, PlayerId, PlayerRespawned, SpawnPoint, SpawnPoints, character_feet,
+    choose_spawn_point, ticks_from_seconds,
 };
 
 type Players<'w, 's> = Query<
@@ -70,7 +70,7 @@ pub(crate) fn advance_timers(
     let mut occupied: Vec<Vec3> = players
         .iter()
         .filter(|(_, _, health, ..)| health.is_alive())
-        .filter_map(|(_, _, _, transform, ..)| transform.map(|t| t.translation))
+        .filter_map(|(_, _, _, transform, ..)| transform.map(|t| character_feet(t.translation)))
         .collect();
     // By player id: query order can change after a rewind.
     due.sort();
@@ -123,7 +123,7 @@ fn respawn(
     let spawn = match choose_spawn_point(&points.0, occupied) {
         Some(index) => points.0[index],
         None => SpawnPoint {
-            feet: transform.map_or(Vec3::ZERO, |t| t.translation),
+            feet: transform.map_or(Vec3::ZERO, |t| character_feet(t.translation)),
             yaw: 0.0,
         },
     };

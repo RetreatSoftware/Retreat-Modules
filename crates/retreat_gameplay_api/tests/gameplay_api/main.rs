@@ -112,6 +112,7 @@ fn the_contract_registers_the_shared_net_state() {
         ids,
         [
             "gameplay.health",
+            "gameplay.look",
             "gameplay.match",
             "gameplay.player",
             "gameplay.scoreboard"

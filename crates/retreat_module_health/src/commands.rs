@@ -1,12 +1,11 @@
 //! `health.*` and `assert.health*`. None is allowed for clients: only the server and scripts run them.
 
-use crate::choose_spawn_point;
 use crate::damage::KillRequested;
 use bevy::prelude::*;
 use retreat_engine_api::{CommandArgs, CommandOutcome, CommandResult, NetState, RetiredEntity};
 use retreat_gameplay_api::{
     DamageCause, DamageRequested, Health, MAX_PLAYERS, PlayerId, PlayerRespawned, SpawnPoints,
-    player_entity_name,
+    character_center, character_feet, choose_spawn_point, player_entity_name,
 };
 use serde::{Deserialize, Serialize};
 
@@ -34,20 +33,19 @@ pub(crate) fn add_dummy_command(world: &mut World, args: &CommandArgs) -> Comman
         }
         if is_player {
             players += 1;
-            occupied.extend(transform.map(|t| t.translation));
+            occupied.extend(transform.map(|t| character_feet(t.translation)));
         }
     }
     if players >= MAX_PLAYERS {
         return Err(args.failure(format!("there are already {MAX_PLAYERS} players")));
     }
     let points = &world.resource::<SpawnPoints>().0;
-    let position =
-        choose_spawn_point(points, &occupied).map_or(Vec3::ZERO, |index| points[index].feet);
+    let feet = choose_spawn_point(points, &occupied).map_or(Vec3::ZERO, |index| points[index].feet);
     world.spawn((
         Name::new(name),
         player,
         HealthDummy,
-        Transform::from_translation(position),
+        Transform::from_translation(character_center(feet)),
     ));
     Ok(CommandOutcome::Continue)
 }
@@ -60,7 +58,7 @@ pub(crate) fn move_dummies_to_spawn(
     for message in respawned.read() {
         for (player, mut transform) in &mut dummies {
             if *player == message.player {
-                transform.translation = message.spawn.feet;
+                transform.translation = character_center(message.spawn.feet);
             }
         }
     }

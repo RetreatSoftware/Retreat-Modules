@@ -1,0 +1,26 @@
+[package]
+name = "retreat_module_character_movement"
+description = "Retreat module: walk, sprint, jump and dash for character bodies, with mouse look; predicted and server-authoritative."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+bevy.workspace = true
+retreat_engine_api.workspace = true
+retreat_gameplay_api.workspace = true
+serde.workspace = true
+
+# Module manifest (schema in Retreat-Modules/CLAUDE.md).
+[package.metadata.retreat]
+manifest_version = 1
+id = "character_movement"
+display_name = "Character movement"
+summary = "Walk, sprint, jump and dash with mouse look."
+plugin = "retreat_module_character_movement::CharacterMovementModulePlugin"
+commands = ["movement.input", "movement.look", "assert.movement_grounded", "assert.movement_speed", "assert.movement_near"]
+actions = ["movement_forward", "movement_back", "movement_left", "movement_right", "movement_sprint", "movement_jump", "movement_dash", "movement_capture_cursor", "movement_release_cursor"]
+requires = ["input", "physics", "networking"]
+engine_api = "0.1"
+targets = ["native", "wasm"]
+network_role = "both"

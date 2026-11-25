@@ -1,7 +1,7 @@
-//! Where to respawn.
+//! Where a player appears: used for joining and for respawning.
 
+use crate::SpawnPoint;
 use bevy::prelude::*;
-use retreat_gameplay_api::SpawnPoint;
 
 /// The index of the point farthest from the nearest position in `occupied`; the first such point on
 /// a tie (so the first point when nobody is around). `None` when there are no points.

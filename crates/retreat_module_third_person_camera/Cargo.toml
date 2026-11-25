@@ -1,0 +1,25 @@
+[package]
+name = "retreat_module_third_person_camera"
+description = "Retreat module: an over-the-shoulder camera that follows a player and stays out of walls."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+bevy.workspace = true
+retreat_engine_api.workspace = true
+retreat_gameplay_api.workspace = true
+
+# Module manifest (schema in Retreat-Modules/CLAUDE.md).
+[package.metadata.retreat]
+manifest_version = 1
+id = "third_person_camera"
+display_name = "Third-person camera"
+summary = "An over-the-shoulder view of the player that does not pass through walls."
+plugin = "retreat_module_third_person_camera::ThirdPersonCameraModulePlugin"
+commands = ["shoulder.follow", "shoulder.stop", "shoulder.swap", "assert.shoulder_distance"]
+actions = ["shoulder_swap"]
+requires = ["camera", "input", "physics", "networking"]
+engine_api = "0.1"
+targets = ["native", "wasm"]
+network_role = "client"

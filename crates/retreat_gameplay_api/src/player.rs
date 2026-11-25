@@ -14,6 +14,19 @@ pub const CHARACTER_HEIGHT: f32 = 1.8;
 /// Height of a character's eyes above its feet, in metres.
 pub const CHARACTER_EYE_HEIGHT: f32 = 1.6;
 
+/// Half the height of the straight part of the character capsule.
+pub const CHARACTER_CAPSULE_HALF_HEIGHT: f32 = CHARACTER_HEIGHT / 2.0 - CHARACTER_RADIUS;
+
+/// A character entity's `Transform` is the middle of its body. This is it for feet at `feet`.
+pub fn character_center(feet: Vec3) -> Vec3 {
+    feet + Vec3::Y * (CHARACTER_HEIGHT / 2.0)
+}
+
+/// Where the feet of a character with its `Transform` at `center` are.
+pub fn character_feet(center: Vec3) -> Vec3 {
+    center - Vec3::Y * (CHARACTER_HEIGHT / 2.0)
+}
+
 /// Identifies a player for the whole session; the value is the network client id. The player's
 /// character entity carries it as a component and is named [`player_entity_name`].
 #[derive(

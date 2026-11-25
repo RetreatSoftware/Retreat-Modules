@@ -3,14 +3,13 @@
 use crate::harness::*;
 use bevy::prelude::*;
 use retreat_gameplay_api::*;
-use retreat_module_health::choose_spawn_point;
 
 #[test]
 fn the_dead_respawn_after_the_delay_at_the_spawn_point_farthest_from_the_living() {
     let mut app = app_with_ready_players(2);
     // Dummies start apart: the first point, then the farthest one from it.
-    assert_eq!(position(&mut app, 1), Vec3::new(0.0, 0.0, 20.0));
-    assert_eq!(position(&mut app, 2), Vec3::new(0.0, 0.0, -20.0));
+    assert_eq!(position(&mut app, 1), Vec3::new(0.0, 0.9, 20.0));
+    assert_eq!(position(&mut app, 2), Vec3::new(0.0, 0.9, -20.0));
     ok(&mut app, "health.kill 1");
     ticks(&mut app, 1);
     drain::<PlayerRespawned>(&mut app);
@@ -59,7 +58,10 @@ fn without_a_map_players_respawn_where_they_are() {
     ticks(&mut app, RESPAWN_TICKS + 1);
     ok(&mut app, "assert.health 1 100");
     assert_eq!(position(&mut app, 1), before);
-    assert_eq!(drain::<PlayerRespawned>(&mut app)[0].spawn.feet, before);
+    assert_eq!(
+        drain::<PlayerRespawned>(&mut app)[0].spawn.feet,
+        character_feet(before)
+    );
 }
 
 #[test]

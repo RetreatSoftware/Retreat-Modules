@@ -1,0 +1,24 @@
+[package]
+name = "retreat_module_player_spawn"
+description = "Retreat module: a character body at a spawn point for every joined client (or a solo player)."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+bevy.workspace = true
+retreat_engine_api.workspace = true
+retreat_gameplay_api.workspace = true
+
+# Module manifest (schema in Retreat-Modules/CLAUDE.md).
+[package.metadata.retreat]
+manifest_version = 1
+id = "player_spawn"
+display_name = "Player spawning"
+summary = "Gives every joined player a character at a spawn point and removes it when they leave."
+plugin = "retreat_module_player_spawn::PlayerSpawnModulePlugin"
+commands = ["spawn.join", "spawn.solo", "spawn.leave", "assert.spawn_count"]
+requires = ["physics", "networking"]
+engine_api = "0.1"
+targets = ["native", "wasm"]
+network_role = "both"

@@ -4748,7 +4748,7 @@ checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
 [[package]]
 name = "retreat_engine_api"
 version = "0.1.0"
-source = "git+https://github.com/RetreatSoftware/Retreat-Engine-3D#19f9b923af181eceb39d6a10e1d63331d221120d"
+source = "git+https://github.com/RetreatSoftware/Retreat-Engine-3D#88f39294a094fe828089b49c13c17a2359253224"
 dependencies = [
  "bevy",
  "postcard",
@@ -4782,6 +4782,16 @@ dependencies = [
  "bevy",
  "retreat_engine_api",
  "retreat_gameplay_api",
+]
+
+[[package]]
+name = "retreat_module_character_movement"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "retreat_engine_api",
+ "retreat_gameplay_api",
+ "serde",
 ]
 
 [[package]]
@@ -4836,6 +4846,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "retreat_module_player_spawn"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "retreat_engine_api",
+ "retreat_gameplay_api",
+]
+
+[[package]]
 name = "retreat_module_players"
 version = "0.1.0"
 dependencies = [
@@ -4857,6 +4876,15 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "retreat_engine_api",
+]
+
+[[package]]
+name = "retreat_module_third_person_camera"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "retreat_engine_api",
+ "retreat_gameplay_api",
 ]
 
 [[package]]

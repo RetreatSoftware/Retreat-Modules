@@ -8,4 +8,3 @@ Still to do:
 - Spawn protection should also end when the player fires: add a shared "player fired" message with `rifle`.
 - `character_movement` teleports real characters on `PlayerRespawned` (needs C4); only health dummies
   move today.
-- `player_spawn` shares the spawn choice (`choose_spawn_point`): move it to the contract then.

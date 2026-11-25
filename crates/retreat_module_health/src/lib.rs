@@ -9,7 +9,8 @@
 //!   Without spawn points (no map) the player respawns where it is.
 //! - A living player below the fall-out height dies (cause `World`).
 //! - Moving a character to its spawn point belongs to the module that owns the character (it reads
-//!   `PlayerRespawned`). This module moves only its own dummies ([`HealthDummy`]).
+//!   `PlayerRespawned`). This module moves only its own dummies ([`HealthDummy`]), which have no
+//!   physics body.
 //!
 //! Numbers: [`HealthConfig`]. All state is in `NetState` components, so it rolls back and
 //! replicates.
@@ -18,7 +19,6 @@ mod commands;
 mod config;
 mod damage;
 mod respawn;
-mod spawn_choice;
 mod state;
 
 use bevy::prelude::*;
@@ -27,7 +27,6 @@ use retreat_gameplay_api::{GameplaySystems, add_gameplay_contract};
 
 pub use commands::HealthDummy;
 pub use config::HealthConfig;
-pub use spawn_choice::choose_spawn_point;
 pub use state::{RespawnTimer, SpawnProtection};
 
 /// Adds the health rules and commands. Insert a [`HealthConfig`] first to change the numbers.
