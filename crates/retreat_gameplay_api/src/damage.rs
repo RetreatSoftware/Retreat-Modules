@@ -16,6 +16,13 @@ pub enum DamageCause {
     World,
 }
 
+/// A player fired a weapon. Written by the weapon in the tick of the shot (it ends spawn
+/// protection).
+#[derive(Message, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PlayerFired {
+    pub player: PlayerId,
+}
+
 /// "Hurt this player." Written by whatever deals damage; only the health module acts on it.
 #[derive(Message, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DamageRequested {

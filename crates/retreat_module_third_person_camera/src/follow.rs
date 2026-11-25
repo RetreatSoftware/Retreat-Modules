@@ -1,10 +1,10 @@
 //! Placing every following camera.
 
 use crate::config::ShoulderConfig;
-use crate::placement::shoulder_points;
+use crate::placement::{closeness, shoulder_points, tilted};
 use bevy::prelude::*;
 use retreat_engine_api::{
-    CameraProjection, GameCamera, NetLocalClient, NetReplaying, PhysicsShape, RetiredEntity,
+    CameraProjection, DrawnPose, GameCamera, NetLocalClient, PhysicsShape, RetiredEntity,
     ShapeCast, cast_shape,
 };
 use retreat_gameplay_api::{LookAngles, PlayerId, SoloPlayer, local_player_id, view_direction};
@@ -18,10 +18,22 @@ pub struct ShoulderCamera {
     pub side: f32,
 }
 
-pub(crate) fn place_cameras(world: &mut World) {
-    if world.resource::<NetReplaying>().0 {
-        return;
+type Undrawn = (With<PlayerId>, Without<DrawnPose>);
+
+/// Asks the engine where each player is drawn: the camera follows the picture, not the tick.
+pub(crate) fn track_drawn_poses(
+    players: Query<(Entity, &Transform), Undrawn>,
+    mut commands: Commands,
+) {
+    for (entity, transform) in &players {
+        commands.entity(entity).insert(DrawnPose {
+            translation: transform.translation,
+            rotation: transform.rotation,
+        });
     }
+}
+
+pub(crate) fn place_cameras(world: &mut World) {
     let local = local_player_id(
         *world.resource::<NetLocalClient>(),
         *world.resource::<SoloPlayer>(),
@@ -36,13 +48,13 @@ pub(crate) fn place_cameras(world: &mut World) {
         return;
     }
     let players: Vec<(Entity, PlayerId, Vec3, LookAngles)> = world
-        .query_filtered::<(Entity, &PlayerId, &Transform, Option<&LookAngles>), Without<RetiredEntity>>()
+        .query_filtered::<(Entity, &PlayerId, &DrawnPose, Option<&LookAngles>), Without<RetiredEntity>>()
         .iter(world)
-        .map(|(entity, player, transform, look)| {
+        .map(|(entity, player, drawn, look)| {
             (
                 entity,
                 *player,
-                transform.translation,
+                drawn.translation,
                 look.copied().unwrap_or_default(),
             )
         })
@@ -59,11 +71,28 @@ pub(crate) fn place_cameras(world: &mut World) {
         let points = shoulder_points(center, look, follow.side, &config);
         let shoulder = unblocked(world, points.pivot, points.shoulder, &characters, &config);
         let back = points.camera - points.shoulder;
-        let position = unblocked(world, shoulder, shoulder + back, &characters, &config);
+        let behind = unblocked(world, shoulder, shoulder + back, &characters, &config);
+        let close = closeness(behind.distance(shoulder), &config);
+        let mut position = behind;
+        let mut view = look;
+        if close > 0.0 {
+            // Pushed against a wall: over the head instead of the shoulder, looking down.
+            let beside = (shoulder - points.pivot) * (1.0 - close) + (behind - shoulder);
+            let level = unblocked(
+                world,
+                points.pivot,
+                points.pivot + beside,
+                &characters,
+                &config,
+            );
+            let raised = level + Vec3::Y * (config.close_lift * close);
+            position = unblocked(world, level, raised, &characters, &config);
+            view = tilted(look, close, &config);
+        }
         if let Some(mut game_camera) = world.get_mut::<GameCamera>(camera) {
             game_camera.set_if_neq(GameCamera {
                 position,
-                target: position + view_direction(look),
+                target: position + view_direction(view),
                 up: Vec3::Y,
                 projection: CameraProjection::Perspective {
                     fov_degrees: config.fov_degrees,

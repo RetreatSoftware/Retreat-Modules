@@ -1,13 +1,8 @@
-# combat_hud
+# combat_hud (step 3 part built)
 
-Crosshair, own health, timer, scoreboard, result. Client only; reads, never changes game state.
+Built: crosshair, health, ammo, hit marker, respawn countdown
+(`crates/retreat_module_combat_hud/src/lib.rs`; numbers `CombatHudConfig::default()`). Command:
+`assert.hud_shown`; text with the engine's `assert.ui_text`.
 
-- **Commands:** `hud.scoreboard <on|off>`, `assert.hud_text <element> <text>` (text without spaces).
-- **Actions:** `hud_scoreboard` Tab (held shows it).
-- **Reads:** `Health`, `Scoreboard`, `MatchState`, `DamageApplied` (hit marker, damage flash),
-  `PlayerDied` (kill feed). Each element is hidden when its data is absent (no match: no timer);
-  the layout is computed from what is shown by a pure function.
-- **Writes:** on-screen elements only. Ammo is not shown until a shared ammo type exists in the contract
-  (added with `rifle`).
-- **Config (default):** hit marker 0.1 s, kill feed 5 lines for 4 s each.
-- **Waits for:** C9.
+Still to do (plan step 5): match timer, scoreboard (`hud.scoreboard`, Tab), result, kill feed, damage
+flash. Each element is hidden when its data is absent.

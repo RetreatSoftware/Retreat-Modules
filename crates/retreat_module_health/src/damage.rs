@@ -1,12 +1,12 @@
 //! Losing hit points and dying.
 
 use crate::config::HealthConfig;
-use crate::state::{RespawnTimer, SpawnProtection};
+use crate::state::SpawnProtection;
 use bevy::prelude::*;
 use retreat_engine_api::RetiredEntity;
 use retreat_gameplay_api::{
     DamageApplied, DamageCause, DamageRequested, Health, MatchState, PlayerDied, PlayerId,
-    ticks_from_seconds,
+    RespawnTimer, ticks_from_seconds,
 };
 
 /// "This player dies now", whatever its health or protection (`health.kill`, falling out).

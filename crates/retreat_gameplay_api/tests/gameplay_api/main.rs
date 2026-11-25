@@ -115,7 +115,9 @@ fn the_contract_registers_the_shared_net_state() {
             "gameplay.look",
             "gameplay.match",
             "gameplay.player",
-            "gameplay.scoreboard"
+            "gameplay.respawn",
+            "gameplay.scoreboard",
+            "gameplay.weapon"
         ]
     );
 }

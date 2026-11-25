@@ -6,9 +6,10 @@
 //! - [`CharacterVisual`]: the configured model (or the engine's plain shape), turned to where the
 //!   character moves (it keeps that facing when it stops; before it ever moved, where it looks),
 //!   playing the clip for what it does ([`locomotion_of`]: idle, walk, run, air);
-//! - [`EntityColor`]: one color per player id;
-//! - [`RenderSmoothing`] on every player but this machine's own (none on a server, which has no
-//!   player).
+//! - [`EntityColor`]: one color per player id (replacing the texture with `flat_colors`);
+//! - `HideVisuals` while its `Health` is 0;
+//! - on a machine with a player, [`RenderSmoothing`], and `RemoteInterpolation` on every other
+//!   player (drawn from the server's past states, which lag compensation judges shots against).
 //!
 //! The model, its clips, the colors and the thresholds are [`CharacterVisualsConfig`]; a game sets
 //! them. The default is the plain shape.
@@ -50,6 +51,11 @@ impl Plugin for CharacterVisualsModulePlugin {
             "assert.visuals_color",
             "assert.visuals_color <player> <color number>",
             commands::assert_color_command,
+        )
+        .register_command(
+            "assert.visuals_hidden",
+            "assert.visuals_hidden <player> <true|false>",
+            commands::assert_hidden_command,
         )
         // After the fixed ticks of the frame and before the engine draws (`Update`).
         .add_systems(PreUpdate, dress::dress_players);

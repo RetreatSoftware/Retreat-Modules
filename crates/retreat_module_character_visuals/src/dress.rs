@@ -4,10 +4,12 @@ use crate::config::CharacterVisualsConfig;
 use crate::locomotion::{Locomotion, clips_for, facing_of, locomotion_of};
 use bevy::prelude::*;
 use retreat_engine_api::{
-    CharacterGround, CharacterVisual, EntityColor, NetLocalClient, PhysicsVelocity,
-    RenderSmoothing, RetiredEntity,
+    CharacterGround, CharacterVisual, EntityColor, EntityColorFlat, HideVisuals, NetLocalClient,
+    PhysicsVelocity, RemoteInterpolation, RenderSmoothing, RetiredEntity,
 };
-use retreat_gameplay_api::{CHARACTER_HEIGHT, LookAngles, PlayerId, SoloPlayer, local_player_id};
+use retreat_gameplay_api::{
+    CHARACTER_HEIGHT, Health, LookAngles, PlayerId, SoloPlayer, local_player_id,
+};
 
 /// What this machine shows a player doing. Not shared state: every machine derives its own.
 #[derive(Component, Debug, Clone, Copy, PartialEq)]
@@ -29,7 +31,13 @@ type Players<'w, 's> = Query<
         Option<&'static VisualMotion>,
         Option<&'static CharacterVisual>,
         Option<&'static EntityColor>,
-        Has<RenderSmoothing>,
+        Option<&'static Health>,
+        (
+            Has<RenderSmoothing>,
+            Has<RemoteInterpolation>,
+            Has<EntityColorFlat>,
+            Has<HideVisuals>,
+        ),
     ),
     (With<Name>, Without<RetiredEntity>),
 >;
@@ -42,7 +50,8 @@ pub(crate) fn dress_players(
     mut commands: Commands,
 ) {
     let local = local_player_id(*client, *solo);
-    for (entity, player, velocity, ground, look, motion, visual, color, smoothed) in &players {
+    for (entity, player, velocity, ground, look, motion, visual, color, health, marks) in &players {
+        let (smoothed, remote, flat, hidden) = marks;
         let velocity = velocity.map_or(Vec3::ZERO, |velocity| velocity.linear);
         let before = motion.map_or_else(|| look.map_or(0.0, |look| look.yaw), |m| m.facing);
         let now = VisualMotion {
@@ -61,12 +70,26 @@ pub(crate) fn dress_players(
         if color != Some(&wanted_color) {
             entity.insert(wanted_color);
         }
-        // Others are drawn between ticks; the own player follows the input (and the camera) exactly.
-        let smooth = local.is_some_and(|local| local != *player);
-        if smooth && !smoothed {
+        if config.flat_colors && !flat {
+            entity.insert(EntityColorFlat);
+        }
+        // The dead are not drawn.
+        let dead = health.is_some_and(|health| !health.is_alive());
+        if dead && !hidden {
+            entity.insert(HideVisuals);
+        } else if !dead && hidden {
+            entity.remove::<HideVisuals>();
+        }
+        // A machine with a player draws every character between ticks, and the others from the
+        // server's past states: what a lag-compensating weapon judges shots against.
+        if local.is_some() && !smoothed {
             entity.insert(config.smoothing);
-        } else if !smooth && smoothed {
-            entity.remove::<RenderSmoothing>();
+        }
+        let other = local.is_some_and(|local| local != *player);
+        if other && !remote {
+            entity.insert(RemoteInterpolation);
+        } else if !other && remote {
+            entity.remove::<RemoteInterpolation>();
         }
     }
 }

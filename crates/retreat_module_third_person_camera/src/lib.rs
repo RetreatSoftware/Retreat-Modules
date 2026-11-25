@@ -5,7 +5,10 @@
 //!   as there is one. `shoulder.stop <camera>` leaves the camera where it is.
 //! - The camera moves in front of anything between the head and its place (two ball casts: to the
 //!   shoulder, then back), so it never looks through a wall. Characters do not block it.
-//! - It is placed after each fixed tick (`FixedPostUpdate`), not during a client's replay.
+//! - Pushed closer than `close_distance`, it moves over the character and tilts down, so the
+//!   character stays in the picture; the crosshair then points lower than the player looks, and a
+//!   weapon aims at what the center of the screen shows.
+//! - It follows where the engine draws the player (`DrawnPose`), every frame (`Update`).
 //!
 //! Numbers: [`ShoulderConfig`]. Mouse look itself belongs to the module that turns the player.
 
@@ -15,12 +18,12 @@ mod follow;
 mod placement;
 
 use bevy::prelude::*;
-use retreat_engine_api::{AppCommandExt, AppInputExt, InputAction, InputKey};
+use retreat_engine_api::{AppCommandExt, AppInputExt, DrawnPoseSystems, InputAction, InputKey};
 use retreat_gameplay_api::add_gameplay_contract;
 
 pub use config::ShoulderConfig;
 pub use follow::ShoulderCamera;
-pub use placement::{ShoulderPoints, shoulder_points};
+pub use placement::{ShoulderPoints, closeness, shoulder_points, tilted};
 
 /// Adds the camera. Insert a [`ShoulderConfig`] first to change the numbers.
 pub struct ThirdPersonCameraModulePlugin;
@@ -53,6 +56,12 @@ impl Plugin for ThirdPersonCameraModulePlugin {
             command_line: "shoulder.swap",
             default_keys: &[InputKey::Q],
         })
-        .add_systems(FixedPostUpdate, follow::place_cameras);
+        .add_systems(
+            Update,
+            (
+                follow::track_drawn_poses.before(DrawnPoseSystems),
+                follow::place_cameras.after(DrawnPoseSystems),
+            ),
+        );
     }
 }

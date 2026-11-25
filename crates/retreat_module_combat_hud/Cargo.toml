@@ -1,0 +1,24 @@
+[package]
+name = "retreat_module_combat_hud"
+description = "Retreat module: crosshair, health, ammo, hit marker and respawn countdown."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+bevy.workspace = true
+retreat_engine_api.workspace = true
+retreat_gameplay_api.workspace = true
+
+# Module manifest (schema in Retreat-Modules/CLAUDE.md).
+[package.metadata.retreat]
+manifest_version = 1
+id = "combat_hud"
+display_name = "Combat HUD"
+summary = "On-screen crosshair, health, ammo, hit marker and respawn countdown for this player."
+plugin = "retreat_module_combat_hud::CombatHudModulePlugin"
+commands = ["assert.hud_shown"]
+requires = ["ui", "networking"]
+engine_api = "0.1"
+targets = ["native", "wasm"]
+network_role = "client"

@@ -3,12 +3,12 @@
 
 use bevy::prelude::*;
 use retreat_engine_api::{
-    CastHit, CommandRegistry, CommandResult, GameCamera, PhysicsCaster, RayCast, ShapeCast,
-    run_command_line,
+    CastHit, CommandRegistry, CommandResult, DrawnPose, GameCamera, PhysicsCaster, RayCast,
+    ShapeCast, run_command_line,
 };
 use retreat_gameplay_api::*;
 use retreat_module_third_person_camera::{
-    ShoulderConfig, ThirdPersonCameraModulePlugin, shoulder_points,
+    ShoulderConfig, ThirdPersonCameraModulePlugin, closeness, shoulder_points,
 };
 
 fn nothing(_: &mut World, _: &ShapeCast) -> Option<CastHit> {
@@ -57,8 +57,22 @@ fn ok(app: &mut App, line: &str) {
     run(app, line).unwrap_or_else(|error| panic!("`{line}` failed: {error}"));
 }
 
+/// Stands in for the engine: every player is drawn where it is.
+fn draw_players(app: &mut App) {
+    let world = app.world_mut();
+    let mut players = world.query_filtered::<(Entity, &Transform), With<PlayerId>>();
+    let found: Vec<(Entity, Transform)> = players.iter(world).map(|(e, t)| (e, *t)).collect();
+    for (entity, transform) in found {
+        world.entity_mut(entity).insert(DrawnPose {
+            translation: transform.translation,
+            rotation: transform.rotation,
+        });
+    }
+}
+
 fn camera(app: &mut App) -> GameCamera {
-    app.world_mut().run_schedule(FixedPostUpdate);
+    draw_players(app);
+    app.world_mut().run_schedule(Update);
     let world = app.world_mut();
     world.query::<&GameCamera>().single(world).unwrap().clone()
 }
@@ -80,12 +94,53 @@ fn the_camera_sits_behind_the_right_shoulder_and_can_swap() {
 }
 
 #[test]
-fn a_wall_pulls_the_camera_in() {
+fn a_wall_pulls_the_camera_in_up_and_down() {
     let mut app = app(wall_behind);
     ok(&mut app, "shoulder.follow view 0");
     let placed = camera(&mut app);
+    // 1 m of the configured 3.5 is free: half way to the close view.
     assert!((placed.position.z - 1.0).abs() < 1.0e-5, "{placed:?}");
-    ok(&mut app, "assert.shoulder_distance view 1 1.3");
+    assert!(placed.position.y > 1.8, "rises: {placed:?}");
+    assert!(placed.position.x < 0.4, "moves over the head: {placed:?}");
+    assert!(
+        placed.target.y < placed.position.y - 0.2,
+        "tilts: {placed:?}"
+    );
+}
+
+/// A wall right at the character's back.
+fn wall_at_the_back(_: &mut World, cast: &ShapeCast) -> Option<CastHit> {
+    let direction = cast.direction.normalize();
+    let travel = (0.15 - cast.origin.z) / direction.z;
+    (direction.z > 0.0 && travel <= cast.max_distance).then(|| CastHit {
+        entity: Entity::PLACEHOLDER,
+        name: "wall".to_string(),
+        distance: travel.max(0.0),
+        point: Vec3::ZERO,
+        normal: Vec3::NEG_Z,
+    })
+}
+
+#[test]
+fn against_a_wall_the_character_stays_in_the_picture() {
+    let mut app = app(wall_at_the_back);
+    ok(&mut app, "shoulder.follow view 0");
+    let placed = camera(&mut app);
+    let forward = (placed.target - placed.position).normalize();
+    // The top of the head is inside the vertical field of view.
+    let head = Vec3::new(0.0, 1.8, 0.0) - placed.position;
+    let angle = forward.angle_between(head).to_degrees();
+    let half = ShoulderConfig::default().fov_degrees / 2.0;
+    assert!(angle < half, "head at {angle} degrees: {placed:?}");
+}
+
+#[test]
+fn closeness_grows_from_the_comfortable_distance_to_the_shoulder() {
+    let config = ShoulderConfig::default();
+    assert_eq!(closeness(config.close_distance, &config), 0.0);
+    assert_eq!(closeness(10.0, &config), 0.0);
+    assert_eq!(closeness(0.0, &config), 1.0);
+    assert_eq!(closeness(config.close_distance / 2.0, &config), 0.5);
 }
 
 #[test]

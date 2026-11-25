@@ -4748,7 +4748,7 @@ checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
 [[package]]
 name = "retreat_engine_api"
 version = "0.1.0"
-source = "git+https://github.com/RetreatSoftware/Retreat-Engine-3D#8972187d202389a76b7299e43e3bb4765aa72f52"
+source = "git+https://github.com/RetreatSoftware/Retreat-Engine-3D#9659b1a9ec8703f6e4fa5ddc9b365f52114f408e"
 dependencies = [
  "bevy",
  "postcard",
@@ -4796,6 +4796,15 @@ dependencies = [
 
 [[package]]
 name = "retreat_module_character_visuals"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "retreat_engine_api",
+ "retreat_gameplay_api",
+]
+
+[[package]]
+name = "retreat_module_combat_hud"
 version = "0.1.0"
 dependencies = [
  "bevy",
@@ -4869,6 +4878,16 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "retreat_engine_api",
+]
+
+[[package]]
+name = "retreat_module_rifle"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "retreat_engine_api",
+ "retreat_gameplay_api",
+ "serde",
 ]
 
 [[package]]

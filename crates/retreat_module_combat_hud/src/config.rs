@@ -1,0 +1,41 @@
+//! The module's tuning numbers.
+
+use bevy::prelude::*;
+
+/// A game changes these by inserting the resource before adding the plugin.
+#[derive(Resource, Debug, Clone, PartialEq)]
+pub struct CombatHudConfig {
+    /// How long the hit marker stays.
+    pub hit_marker_seconds: f32,
+    pub hit_marker_text: String,
+    pub font_size: f32,
+    /// Width of the crosshair in pixels.
+    pub crosshair_size: f32,
+}
+
+impl Default for CombatHudConfig {
+    fn default() -> Self {
+        Self {
+            hit_marker_seconds: 0.2,
+            hit_marker_text: "HIT".to_string(),
+            font_size: 28.0,
+            crosshair_size: 24.0,
+        }
+    }
+}
+
+impl CombatHudConfig {
+    /// What is wrong, naming the field.
+    pub fn validate(&self) -> Result<(), String> {
+        for (field, value) in [
+            ("hit_marker_seconds", self.hit_marker_seconds),
+            ("font_size", self.font_size),
+            ("crosshair_size", self.crosshair_size),
+        ] {
+            if !(value.is_finite() && value > 0.0) {
+                return Err(format!("{field} must be more than 0, got {value}"));
+            }
+        }
+        Ok(())
+    }
+}

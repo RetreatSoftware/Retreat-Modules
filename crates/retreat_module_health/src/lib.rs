@@ -1,7 +1,8 @@
 //! Health module: damage, death, spawn protection and respawn. The server decides; clients run the
 //! same systems as prediction and are corrected by the engine.
 //!
-//! - Every `PlayerId` entity gets `Health` and spawn protection.
+//! - Every `PlayerId` entity gets `Health` and spawn protection. Firing (`PlayerFired`) ends the
+//!   protection at once.
 //! - `DamageRequested` removes hit points unless the target is dead or protected, or the match is
 //!   finished. The last point sends `PlayerDied` and starts the respawn timer.
 //! - After the delay, and for everyone on `MatchRestarted`, a player has full health again and
@@ -27,7 +28,8 @@ use retreat_gameplay_api::{GameplaySystems, add_gameplay_contract};
 
 pub use commands::HealthDummy;
 pub use config::HealthConfig;
-pub use state::{RespawnTimer, SpawnProtection};
+pub use retreat_gameplay_api::RespawnTimer;
+pub use state::SpawnProtection;
 
 /// Adds the health rules and commands. Insert a [`HealthConfig`] first to change the numbers.
 pub struct HealthModulePlugin;
@@ -40,7 +42,6 @@ impl Plugin for HealthModulePlugin {
             panic!("invalid HealthConfig: {problem}");
         }
         app.add_message::<damage::KillRequested>()
-            .register_net_state::<RespawnTimer>()
             .register_net_state::<SpawnProtection>()
             .register_net_state::<HealthDummy>()
             .register_command(
@@ -75,6 +76,7 @@ impl Plugin for HealthModulePlugin {
                     (
                         respawn::advance_timers,
                         respawn::attach_health,
+                        respawn::end_protection_on_fire,
                         damage::request_fall_outs,
                         damage::apply_kills,
                         damage::apply_damage,

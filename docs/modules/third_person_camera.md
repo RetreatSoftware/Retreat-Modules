@@ -4,4 +4,5 @@ Rules: `crates/retreat_module_third_person_camera/src/lib.rs`. Numbers: `Shoulde
 `src/config.rs`. Commands: `shoulder.follow <camera> [player]`, `shoulder.stop <camera>`, `shoulder.swap`
 (key Q), `assert.shoulder_distance`.
 
-Not built: smoothing between fixed ticks. Against a wall the camera comes close to the character.
+It follows the drawn (smoothed) position every frame. Against a wall it rises over the character and
+tilts down (`close_distance`, `close_lift`, `close_tilt`).

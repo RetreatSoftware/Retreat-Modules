@@ -5,7 +5,8 @@ use crate::dress::VisualMotion;
 use bevy::math::ops;
 use bevy::prelude::*;
 use retreat_engine_api::{
-    CommandArgs, CommandError, CommandOutcome, CommandResult, EntityColor, RetiredEntity,
+    CommandArgs, CommandError, CommandOutcome, CommandResult, EntityColor, HideVisuals,
+    RetiredEntity,
 };
 use retreat_gameplay_api::PlayerId;
 
@@ -53,6 +54,24 @@ pub(crate) fn assert_color_command(world: &mut World, args: &CommandArgs) -> Com
             "player {} does not have color {number} of the {} configured colors",
             player.0,
             colors.len()
+        )));
+    }
+    Ok(CommandOutcome::Continue)
+}
+
+pub(crate) fn assert_hidden_command(world: &mut World, args: &CommandArgs) -> CommandResult {
+    args.expect_count(2)?;
+    let player = PlayerId(args.parse(0, "player")?);
+    let expected: bool = args.parse(1, "hidden")?;
+    let mut players =
+        world.query_filtered::<(&PlayerId, Has<HideVisuals>), Without<RetiredEntity>>();
+    let Some((_, hidden)) = players.iter(world).find(|(found, _)| **found == player) else {
+        return Err(args.failure(format!("there is no player {}", player.0)));
+    };
+    if hidden != expected {
+        return Err(args.failure(format!(
+            "player {} hidden is {hidden}, expected {expected}",
+            player.0
         )));
     }
     Ok(CommandOutcome::Continue)

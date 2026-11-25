@@ -31,3 +31,17 @@ pub fn shoulder_points(
         camera: shoulder - view_direction(look) * config.distance,
     }
 }
+
+/// 0 when the camera is at least `close_distance` behind the shoulder, 1 when it is right at it.
+pub fn closeness(behind: f32, config: &ShoulderConfig) -> f32 {
+    (1.0 - behind / config.close_distance).clamp(0.0, 1.0)
+}
+
+/// The view tilted down by what `closeness` asks, never past straight down.
+pub fn tilted(look: LookAngles, closeness: f32, config: &ShoulderConfig) -> LookAngles {
+    const STEEPEST: f32 = -1.5;
+    LookAngles {
+        yaw: look.yaw,
+        pitch: (look.pitch - config.close_tilt * closeness).max(STEEPEST),
+    }
+}

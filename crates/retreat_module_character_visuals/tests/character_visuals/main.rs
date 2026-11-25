@@ -136,17 +136,44 @@ fn a_still_character_faces_where_it_looks_until_it_moves() {
 }
 
 #[test]
-fn only_other_players_are_smoothed_and_a_server_smooths_nobody() {
+fn others_are_drawn_from_the_server_and_a_server_smooths_nobody() {
     let mut app = with_fox();
     let first = player(&mut app, 0, Vec3::ZERO, true);
     let second = player(&mut app, 1, Vec3::ZERO, true);
     app.update();
     let smoothed = |app: &App, entity| app.world().get::<RenderSmoothing>(entity).is_some();
-    assert!(!smoothed(&app, first) && !smoothed(&app, second));
+    let remote = |app: &App, entity| app.world().get::<RemoteInterpolation>(entity).is_some();
+    assert!(!smoothed(&app, first) && !remote(&app, second));
     app.world_mut().insert_resource(NetLocalClient(Some(1)));
     app.update();
-    assert!(smoothed(&app, first));
-    assert!(!smoothed(&app, second));
+    assert!(smoothed(&app, first) && smoothed(&app, second));
+    assert!(remote(&app, first));
+    assert!(!remote(&app, second), "the own character is predicted");
+}
+
+#[test]
+fn the_dead_are_hidden_until_they_live_again() {
+    let mut app = with_fox();
+    let entity = player(&mut app, 0, Vec3::ZERO, true);
+    let mut health = Health::full(10);
+    health.apply_damage(10);
+    app.world_mut().entity_mut(entity).insert(health);
+    app.update();
+    ok(&mut app, "assert.visuals_hidden 0 true");
+    app.world_mut().get_mut::<Health>(entity).unwrap().restore();
+    app.update();
+    ok(&mut app, "assert.visuals_hidden 0 false");
+}
+
+#[test]
+fn flat_colors_replace_the_texture_when_the_game_asks() {
+    let mut app = app(CharacterVisualsConfig {
+        flat_colors: true,
+        ..default()
+    });
+    let entity = player(&mut app, 0, Vec3::ZERO, true);
+    app.update();
+    assert!(app.world().get::<EntityColorFlat>(entity).is_some());
 }
 
 #[test]

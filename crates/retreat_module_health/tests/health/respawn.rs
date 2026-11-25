@@ -79,3 +79,17 @@ fn the_spawn_choice_is_the_farthest_point_and_the_first_on_a_tie() {
     let both_ends = [points[0].feet, points[2].feet];
     assert_eq!(choose_spawn_point(&points, &both_ends), Some(1));
 }
+
+#[test]
+fn firing_ends_the_spawn_protection() {
+    let mut app = app();
+    ok(&mut app, "health.add_dummy 1");
+    ticks(&mut app, 1);
+    app.world_mut()
+        .write_message(retreat_gameplay_api::PlayerFired {
+            player: PlayerId(1),
+        });
+    ok(&mut app, "health.damage 1 10");
+    ticks(&mut app, 1);
+    ok(&mut app, "assert.health 1 90");
+}

@@ -37,13 +37,15 @@ pub struct CharacterVisualsConfig {
     pub model: Option<CharacterModel>,
     /// Player `id` gets color `id % colors.len()`.
     pub colors: Vec<Color>,
+    /// Replace the model's texture with the player's color instead of tinting it.
+    pub flat_colors: bool,
     /// Ground speed below which a character stands (m/s).
     pub idle_below: f32,
     /// Ground speed from which a character runs (m/s).
     pub run_from: f32,
     /// Without the engine's ground readout, a vertical speed above this counts as airborne.
     pub air_vertical_speed: f32,
-    /// How other players are drawn between ticks and corrections.
+    /// How characters are drawn between ticks and corrections.
     pub smoothing: RenderSmoothing,
 }
 
@@ -61,6 +63,7 @@ impl Default for CharacterVisualsConfig {
                 Color::srgb(0.3, 0.9, 0.9),
                 Color::srgb(0.95, 0.95, 0.95),
             ],
+            flat_colors: false,
             idle_below: 0.5,
             run_from: 7.5,
             air_vertical_speed: 1.0,

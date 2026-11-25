@@ -59,3 +59,13 @@ impl Health {
         self.current = self.max;
     }
 }
+
+/// On a dead player: ticks until it respawns. Owned by the health module.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RespawnTimer {
+    pub ticks_left: u32,
+}
+
+impl NetState for RespawnTimer {
+    const ID: &'static str = "gameplay.respawn";
+}

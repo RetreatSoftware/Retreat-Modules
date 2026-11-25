@@ -1,0 +1,26 @@
+[package]
+name = "retreat_module_rifle"
+description = "Retreat module: a hitscan rifle with server-decided, lag-compensated hits."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+bevy.workspace = true
+retreat_engine_api.workspace = true
+retreat_gameplay_api.workspace = true
+serde.workspace = true
+
+# Module manifest (schema in Retreat-Modules/CLAUDE.md).
+[package.metadata.retreat]
+manifest_version = 1
+id = "rifle"
+display_name = "Rifle"
+summary = "An automatic rifle with ammo and reload; the server decides hits as the shooter saw them."
+plugin = "retreat_module_rifle::RifleModulePlugin"
+commands = ["rifle.fire", "rifle.reload", "assert.rifle_ammo", "assert.rifle_hits"]
+actions = ["rifle_fire", "rifle_reload"]
+requires = ["input", "physics", "networking"]
+engine_api = "0.1"
+targets = ["native", "wasm"]
+network_role = "both"

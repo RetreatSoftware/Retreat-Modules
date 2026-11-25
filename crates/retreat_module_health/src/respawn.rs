@@ -1,12 +1,12 @@
 //! Getting health, protection and respawn timers, and coming back to life.
 
 use crate::config::HealthConfig;
-use crate::state::{RespawnTimer, SpawnProtection};
+use crate::state::SpawnProtection;
 use bevy::prelude::*;
 use retreat_engine_api::RetiredEntity;
 use retreat_gameplay_api::{
-    Health, MatchRestarted, PlayerId, PlayerRespawned, SpawnPoint, SpawnPoints, character_feet,
-    choose_spawn_point, ticks_from_seconds,
+    Health, MatchRestarted, PlayerFired, PlayerId, PlayerRespawned, RespawnTimer, SpawnPoint,
+    SpawnPoints, character_feet, choose_spawn_point, ticks_from_seconds,
 };
 
 type Players<'w, 's> = Query<
@@ -37,6 +37,23 @@ pub(crate) fn attach_health(
             .entity(entity)
             .insert(Health::full(config.max_health));
         protect(&mut commands, entity, &config, &time);
+    }
+}
+
+type Protected = (With<SpawnProtection>, Without<RetiredEntity>);
+
+/// Whoever shoots is no longer protected.
+pub(crate) fn end_protection_on_fire(
+    mut fired: MessageReader<PlayerFired>,
+    protected: Query<(Entity, &PlayerId), Protected>,
+    mut commands: Commands,
+) {
+    for shot in fired.read() {
+        for (entity, player) in &protected {
+            if *player == shot.player {
+                commands.entity(entity).remove::<SpawnProtection>();
+            }
+        }
     }
 }
 
