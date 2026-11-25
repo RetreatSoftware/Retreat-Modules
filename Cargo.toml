@@ -1,14 +1,15 @@
 # Retreat-Modules workspace: one crate per gameplay module, under crates/.
 #
-# Modules depend only on Bevy and on the engine's contract crate, retreat_engine_api (never on
-# retreat_engine itself, never on each other). Both are pinned here once.
+# Modules depend only on Bevy and on contract crates: the engine's retreat_engine_api and this
+# repository's retreat_gameplay_api (never on retreat_engine itself, never on each other).
+# All are pinned here once.
 # retreat_engine_api comes from the public Retreat-Engine-3D repository; Cargo.lock pins the
 # commit (`cargo update -p retreat_engine_api` picks up a newer one). Bevy must be the exact
 # version the engine uses.
 
 [workspace]
 resolver = "3"
-members = ["crates/retreat_module_spawner", "crates/retreat_module_orbit_camera", "crates/retreat_module_sfx", "crates/retreat_module_fox_walk", "crates/retreat_module_highscore", "crates/retreat_module_menu", "crates/retreat_module_players", "crates/retreat_manifest", "crates/retreat_resolver"]
+members = ["crates/retreat_module_spawner", "crates/retreat_module_orbit_camera", "crates/retreat_module_sfx", "crates/retreat_module_fox_walk", "crates/retreat_module_highscore", "crates/retreat_module_menu", "crates/retreat_module_players", "crates/retreat_module_arena", "crates/retreat_gameplay_api", "crates/retreat_manifest", "crates/retreat_resolver"]
 
 [workspace.package]
 version = "0.1.0"
@@ -18,6 +19,7 @@ publish = false
 [workspace.dependencies]
 bevy = "0.20.1"
 retreat_engine_api = { git = "https://github.com/RetreatSoftware/Retreat-Engine-3D" }
+retreat_gameplay_api = { path = "crates/retreat_gameplay_api" }
 
 # Same build profiles as the engine: Bevy is slow unoptimized.
 # `debug = "line-tables-only"`: full debug info made each test binary carry a ~1 GB .pdb and

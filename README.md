@@ -16,6 +16,9 @@ Modules are independent and combinable, and are designed to integrate with Retre
 | Crate | Commands | What it does |
 |---|---|---|
 | `retreat_module_spawner` | `spawner.rain <count>` | Drops physics boxes from the sky (first, demo module). |
+| `retreat_module_arena` | `arena.load <map>` | Builds an arena map from fixed physics boxes and publishes spawn points. |
+
+Shared gameplay types live in the contract crate `retreat_gameplay_api`. Planned modules: [docs/modules](docs/modules/README.md).
 
 ```bash
 cargo test --workspace

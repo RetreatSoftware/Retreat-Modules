@@ -4724,12 +4724,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "retreat_gameplay_api"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+]
+
+[[package]]
 name = "retreat_manifest"
 version = "0.1.0"
 dependencies = [
  "semver",
  "serde",
  "toml",
+]
+
+[[package]]
+name = "retreat_module_arena"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "retreat_engine_api",
+ "retreat_gameplay_api",
 ]
 
 [[package]]

@@ -1,7 +1,11 @@
 //! Reads every module of a Retreat-Modules checkout from disk and validates it.
 //!
-//! Layout contract: `<root>/crates/retreat_module_<id>/{Cargo.toml, src/**/*.rs}`.
+//! Layout contract: `<root>/crates/retreat_module_<id>/{Cargo.toml, src/**/*.rs}`. The contract
+//! crates (`dependencies::CONTRACT_CRATES`) are not modules; only their dependencies are checked.
 
+use crate::dependencies::{
+    CONTRACT_CRATES, CONTRACT_DEPENDENCIES, MODULE_DEPENDENCIES, check_dependencies,
+};
 use crate::manifest::Manifest;
 use crate::problem::Problem;
 use crate::validate::{check_against_source, find_duplicates};
@@ -54,6 +58,9 @@ pub fn validate_workspace(root: &Path) -> WorkspaceReport {
     for directory in directories {
         load_module(&directory, &mut report);
     }
+    for name in CONTRACT_CRATES {
+        check_contract_crate(&crates_dir.join(name), name, &mut report);
+    }
     let manifests: Vec<&Manifest> = report.modules.iter().map(|m| &m.manifest).collect();
     let duplicates = find_duplicates(&manifests);
     report.problems.extend(duplicates);
@@ -76,6 +83,9 @@ fn load_module(directory: &Path, report: &mut WorkspaceReport) {
             return;
         }
     };
+    report
+        .problems
+        .extend(check_dependencies(&name, &cargo_toml, MODULE_DEPENDENCIES));
     let manifest = match Manifest::from_cargo_toml(&cargo_toml) {
         Ok(manifest) => manifest,
         Err(problems) => {
@@ -105,6 +115,22 @@ fn load_module(directory: &Path, report: &mut WorkspaceReport) {
         directory: directory.to_path_buf(),
         manifest,
     });
+}
+
+/// A contract crate may be absent (a test checkout), but when present it must stay below modules.
+fn check_contract_crate(directory: &Path, name: &str, report: &mut WorkspaceReport) {
+    if !directory.is_dir() {
+        return;
+    }
+    match fs::read_to_string(directory.join("Cargo.toml")) {
+        Ok(text) => report
+            .problems
+            .extend(check_dependencies(name, &text, CONTRACT_DEPENDENCIES)),
+        Err(error) => report.problems.push(Problem::new(
+            name,
+            format!("cannot read Cargo.toml: {error}"),
+        )),
+    }
 }
 
 /// Concatenates every `.rs` file under `dir` (sorted, so the result is deterministic).

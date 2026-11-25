@@ -7,6 +7,7 @@
 //! through this crate. The schema is documented in `Retreat-Modules/CLAUDE.md`.
 
 pub mod capabilities;
+pub mod dependencies;
 pub mod manifest;
 pub mod problem;
 pub mod source_scan;

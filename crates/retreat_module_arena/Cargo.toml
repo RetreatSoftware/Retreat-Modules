@@ -1,0 +1,23 @@
+[package]
+name = "retreat_module_arena"
+description = "Retreat module: arena maps as data; `arena.load <map>` builds one from fixed physics boxes and publishes its spawn points."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+bevy.workspace = true
+retreat_engine_api.workspace = true
+retreat_gameplay_api.workspace = true
+
+# Module manifest (schema in Retreat-Modules/CLAUDE.md).
+[package.metadata.retreat]
+manifest_version = 1
+id = "arena"
+display_name = "Arena maps"
+summary = "Builds a graybox arena from fixed physics boxes and publishes its spawn points."
+plugin = "retreat_module_arena::ArenaModulePlugin"
+commands = ["arena.load"]
+requires = ["physics"]
+engine_api = "0.1"
+targets = ["native", "wasm"]

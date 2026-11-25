@@ -1,0 +1,10 @@
+[package]
+name = "retreat_gameplay_api"
+description = "Retreat gameplay contract: the shared types (player identity, damage, health, death, respawn, score, spawn points) modules use to work together without depending on each other."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+# A contract crate, not a module: no manifest, no plugin, no commands, no systems.
+[dependencies]
+bevy.workspace = true
