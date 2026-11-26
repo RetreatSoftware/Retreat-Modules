@@ -212,10 +212,10 @@ fn flat_colors_replace_the_texture_when_the_game_asks() {
 }
 
 #[test]
-#[should_panic(expected = "colors")]
+#[should_panic(expected = "run_from")]
 fn an_invalid_config_is_refused_at_startup() {
     let _ = app(CharacterVisualsConfig {
-        colors: Vec::new(),
+        run_from: 0.0,
         ..default()
     });
 }

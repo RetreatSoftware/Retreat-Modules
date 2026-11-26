@@ -1,6 +1,5 @@
 //! `assert.visuals_*`: what a script can check without looking at the picture.
 
-use crate::config::CharacterVisualsConfig;
 use crate::dress::VisualMotion;
 use bevy::math::ops;
 use bevy::prelude::*;
@@ -8,7 +7,7 @@ use retreat_engine_api::{
     CommandArgs, CommandError, CommandOutcome, CommandResult, EntityColor, HideVisuals,
     RetiredEntity,
 };
-use retreat_gameplay_api::PlayerId;
+use retreat_gameplay_api::{PlayerId, PlayerRoster};
 
 pub(crate) fn assert_state_command(world: &mut World, args: &CommandArgs) -> CommandResult {
     args.expect_count(2)?;
@@ -48,12 +47,12 @@ pub(crate) fn assert_color_command(world: &mut World, args: &CommandArgs) -> Com
     let player = PlayerId(args.parse(0, "player")?);
     let number: usize = args.parse(1, "color number")?;
     let (_, color) = looks_of(world, args, player)?;
-    let colors = &world.resource::<CharacterVisualsConfig>().colors;
-    if colors.get(number) != Some(&color) {
+    let roster = &world.resource::<PlayerRoster>().0;
+    if roster.get(number).map(|entry| entry.color) != Some(color) {
         return Err(args.failure(format!(
-            "player {} does not have color {number} of the {} configured colors",
+            "player {} does not have color {number} of the roster's {}",
             player.0,
-            colors.len()
+            roster.len()
         )));
     }
     Ok(CommandOutcome::Continue)

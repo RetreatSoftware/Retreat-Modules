@@ -8,7 +8,7 @@ use retreat_engine_api::{
     PhysicsVelocity, RemoteInterpolation, RenderSmoothing, RetiredEntity,
 };
 use retreat_gameplay_api::{
-    CharacterSize, Health, LookAngles, PlayerId, SoloPlayer, local_player_id,
+    CharacterSize, Health, LookAngles, PlayerId, PlayerRoster, SoloPlayer, local_player_id,
 };
 
 /// What this machine shows a player doing. Not shared state: every machine derives its own.
@@ -45,6 +45,7 @@ type Players<'w, 's> = Query<
 pub(crate) fn dress_players(
     players: Players,
     config: Res<CharacterVisualsConfig>,
+    roster: Res<PlayerRoster>,
     client: Res<NetLocalClient>,
     solo: Res<SoloPlayer>,
     size: Res<CharacterSize>,
@@ -66,7 +67,7 @@ pub(crate) fn dress_players(
             },
         };
         let wanted = visual_for(&config, *size, now, velocity);
-        let wanted_color = EntityColor(config.colors[player.0 as usize % config.colors.len()]);
+        let wanted_color = EntityColor(roster.color(*player));
         let mut entity = commands.entity(entity);
         if motion != Some(&now) {
             entity.insert(now);

@@ -30,13 +30,12 @@ pub struct CharacterModel {
     pub air: Clip,
 }
 
-/// A game changes this by inserting the resource before adding the plugin.
+/// A game changes this by inserting the resource before adding the plugin. Each player's color is
+/// the contract's `PlayerRoster`.
 #[derive(Resource, Debug, Clone, PartialEq)]
 pub struct CharacterVisualsConfig {
     /// `None` draws the engine's plain shape with its facing.
     pub model: Option<CharacterModel>,
-    /// Player `id` gets color `id % colors.len()`.
-    pub colors: Vec<Color>,
     /// Replace the model's texture with the player's color instead of tinting it.
     pub flat_colors: bool,
     /// Ground speed below which a character stands (m/s).
@@ -53,16 +52,6 @@ impl Default for CharacterVisualsConfig {
     fn default() -> Self {
         Self {
             model: None,
-            colors: vec![
-                Color::srgb(0.95, 0.35, 0.3),
-                Color::srgb(0.35, 0.6, 1.0),
-                Color::srgb(0.4, 0.85, 0.4),
-                Color::srgb(1.0, 0.85, 0.25),
-                Color::srgb(0.75, 0.45, 0.95),
-                Color::srgb(1.0, 0.6, 0.15),
-                Color::srgb(0.3, 0.9, 0.9),
-                Color::srgb(0.95, 0.95, 0.95),
-            ],
             flat_colors: false,
             idle_below: 0.5,
             run_from: 7.5,
@@ -75,9 +64,6 @@ impl Default for CharacterVisualsConfig {
 impl CharacterVisualsConfig {
     /// What is wrong, naming the field.
     pub fn validate(&self) -> Result<(), String> {
-        if self.colors.is_empty() {
-            return Err("colors needs at least one color".to_string());
-        }
         for (field, value) in [
             ("idle_below", self.idle_below),
             ("run_from", self.run_from),

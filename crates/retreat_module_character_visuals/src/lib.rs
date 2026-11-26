@@ -7,12 +7,13 @@
 //!   character moves (it keeps that facing when it stops; before it ever moved, where it looks;
 //!   another player's facing follows its drawn movement, [`facing_of_drawn_movement`]),
 //!   playing the clip for what it does ([`locomotion_of`]: idle, walk, run, air);
-//! - [`EntityColor`]: one color per player id (replacing the texture with `flat_colors`);
+//! - [`EntityColor`]: the player's color in the contract's `PlayerRoster` (replacing the texture
+//!   with `flat_colors`);
 //! - `HideVisuals` while its `Health` is 0;
 //! - on a machine with a player, [`RenderSmoothing`], and `RemoteInterpolation` on every other
 //!   player (drawn from the server's past states, which lag compensation judges shots against).
 //!
-//! The model, its clips, the colors and the thresholds are [`CharacterVisualsConfig`]; a game sets
+//! The model, its clips and the thresholds are [`CharacterVisualsConfig`]; a game sets
 //! them. The default is the plain shape.
 
 mod commands;
@@ -30,7 +31,7 @@ pub use dress::VisualMotion;
 pub use locomotion::{Locomotion, clips_for, facing_of, locomotion_of};
 pub use remote_facing::facing_of_drawn_movement;
 
-/// Adds the looks. Insert a [`CharacterVisualsConfig`] first to choose a model and colors.
+/// Adds the looks. Insert a [`CharacterVisualsConfig`] first to choose a model.
 pub struct CharacterVisualsModulePlugin;
 
 impl Plugin for CharacterVisualsModulePlugin {

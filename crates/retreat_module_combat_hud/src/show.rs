@@ -1,16 +1,19 @@
 //! Putting the views on screen.
 
 use crate::config::CombatHudConfig;
-use crate::match_view::{KillFeed, MatchInput, kill_line, match_view};
+use crate::looks::readable;
+use crate::match_view::{KillFeed, MatchInput, PlayerLine, kill_line, match_view};
 use crate::view::{HudInput, hud_view};
 use crate::widgets::{
     CLOCK_WIDGET, CROSSHAIR_WIDGET, HEALTH_WIDGET, HIT_WIDGET, HudLines, RESPAWN_WIDGET,
     RESULT_WIDGET, SCORE_HEAD_WIDGET, ammo_widget,
 };
 use bevy::prelude::*;
-use retreat_engine_api::{InputActions, NetLocalClient, NetReplaying, RetiredEntity, UiHud};
+use retreat_engine_api::{
+    HudStyle, InputActions, NetLocalClient, NetReplaying, RetiredEntity, UiHud,
+};
 use retreat_gameplay_api::{
-    Health, KillLog, MatchState, PlayerId, PlayerNames, RespawnTimer, Scoreboard, SoloPlayer,
+    Health, KillLog, MatchState, PlayerId, PlayerRoster, RespawnTimer, Scoreboard, SoloPlayer,
     WeaponKind, Weapons, local_player_id, ticks_from_seconds,
 };
 
@@ -96,7 +99,7 @@ pub(crate) struct Sources<'w, 's> {
         Query<'w, 's, (&'static MatchState, Option<&'static Scoreboard>), Without<RetiredEntity>>,
     client: Res<'w, NetLocalClient>,
     solo: Res<'w, SoloPlayer>,
-    names: Res<'w, PlayerNames>,
+    roster: Res<'w, PlayerRoster>,
     actions: Option<Res<'w, InputActions>>,
     switch: Res<'w, ScoreboardSwitch>,
     kills: Res<'w, ShownKills>,
@@ -127,7 +130,7 @@ pub(crate) fn show_hud(sources: Sources, mut marker: ResMut<HitMarker>, mut hud:
             scoreboard_wanted: held || sources.switch.0,
             timestep: sources.time.timestep(),
         },
-        &sources.names,
+        &sources.roster,
     );
     let view = hud_view(
         playing.map_or_else(HudInput::default, |(_, health, weapons, respawn)| {
@@ -142,36 +145,59 @@ pub(crate) fn show_hud(sources: Sources, mut marker: ResMut<HitMarker>, mut hud:
         }),
     );
     marker.unshown = false;
+    // Every text has the panel; a line about a player has the player's color.
+    let panel = Some(sources.config.panel);
+    let plain = |text: Option<String>| {
+        text.map(|text| {
+            let style = HudStyle { panel, ..default() };
+            (text, style)
+        })
+    };
+    let colored = |line: Option<PlayerLine>| {
+        line.map(|line| {
+            let color = line.player.map_or(Color::WHITE, |player| {
+                readable(sources.roster.color(player))
+            });
+            (line.text, HudStyle { color, panel })
+        })
+    };
+    // The hit marker sits on the crosshair: no box over what is aimed at.
+    let hit = view.hit.then(|| {
+        let text = sources.config.hit_marker_text.clone();
+        (text, HudStyle::default())
+    });
     let mut texts = vec![
-        (
-            HIT_WIDGET,
-            view.hit.then(|| sources.config.hit_marker_text.clone()),
-        ),
-        (HEALTH_WIDGET, view.health),
-        (RESPAWN_WIDGET, view.respawn),
-        (CLOCK_WIDGET, table.clock),
-        (RESULT_WIDGET, table.result),
-        (SCORE_HEAD_WIDGET, table.score_head),
+        (HIT_WIDGET, hit),
+        (HEALTH_WIDGET, plain(view.health)),
+        (RESPAWN_WIDGET, plain(view.respawn)),
+        (CLOCK_WIDGET, plain(table.clock)),
+        (RESULT_WIDGET, colored(table.result)),
+        (SCORE_HEAD_WIDGET, plain(table.score_head)),
     ];
     texts.extend(WeaponKind::ALL.map(|kind| {
         let line = view.ammo.iter().find(|(found, _)| *found == kind);
-        (ammo_widget(kind), line.map(|(_, text)| text.clone()))
+        (ammo_widget(kind), plain(line.map(|(_, text)| text.clone())))
     }));
     let mut rows = table.score_rows.into_iter();
-    texts.extend(sources.lines.score_rows.iter().map(|id| (*id, rows.next())));
+    let score_rows = sources.lines.score_rows.iter();
+    texts.extend(score_rows.map(|id| (*id, colored(rows.next()))));
     let mut kills = sources
         .kills
         .0
         .latest(sources.lines.kills.len())
-        .map(|entry| kill_line(entry, &sources.names))
+        .map(|entry| kill_line(entry, &sources.roster))
         .filter(|_| local.is_some());
-    texts.extend(sources.lines.kills.iter().map(|id| (*id, kills.next())));
-    for (id, text) in texts {
-        show(&mut hud, id, text.is_some());
-        if let Some(text) = text
-            && !hud.has_text(id, &text)
-        {
-            hud.set_text(id, text).expect("registered by this module");
+    let kill_lines = sources.lines.kills.iter();
+    texts.extend(kill_lines.map(|id| (*id, colored(kills.next()))));
+    for (id, line) in texts {
+        show(&mut hud, id, line.is_some());
+        if let Some((text, style)) = line {
+            if !hud.has_text(id, &text) {
+                hud.set_text(id, text).expect("registered by this module");
+            }
+            if !hud.has_style(id, style) {
+                hud.set_style(id, style).expect("registered by this module");
+            }
         }
     }
     show(&mut hud, CROSSHAIR_WIDGET, view.crosshair);

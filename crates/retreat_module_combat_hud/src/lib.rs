@@ -16,12 +16,14 @@
 //! While the scoreboard is shown, the middle of the screen (crosshair, hit marker, respawn) is
 //! empty. What is shown is the pure [`hud_view`] and [`match_view`]; where it goes is the engine's
 //! HUD layout. A server has no player and shows nothing. Names come from the contract's
-//! `PlayerNames`. Visibility is checked with `assert.hud_shown`, text with `assert.hud_text` (runs
+//! `PlayerRoster` (a scoreboard row, a result and a kill line are in the
+//! player's color, the killer's for a kill; every text but the hit marker has a panel). Visibility is checked with `assert.hud_shown`, text with `assert.hud_text` (runs
 //! of spaces count as one; the engine's `assert.ui_text` cannot compare columns). Numbers:
 //! [`CombatHudConfig`].
 
 mod commands;
 mod config;
+mod looks;
 mod match_view;
 mod show;
 mod view;
@@ -32,7 +34,8 @@ use retreat_engine_api::{AppCommandExt, AppInputExt, HELD_ONLY, InputAction, Inp
 use retreat_gameplay_api::{GameplaySystems, add_gameplay_contract};
 
 pub use config::CombatHudConfig;
-pub use match_view::{KillFeed, MatchInput, MatchView, kill_line, match_view};
+pub use looks::readable;
+pub use match_view::{KillFeed, MatchInput, MatchView, PlayerLine, kill_line, match_view};
 pub use view::{HudInput, HudView, hud_view};
 pub use widgets::{
     CLOCK_WIDGET, CROSSHAIR_WIDGET, HEALTH_WIDGET, HIT_WIDGET, HudLines, RESPAWN_WIDGET,

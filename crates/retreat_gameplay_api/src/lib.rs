@@ -29,7 +29,7 @@
 //! | [`PlayerRespawned`] | health | movement, weapons, camera, visuals |
 //! | [`Scoreboard`], [`MatchState`] (components of the match entity) | match | health, weapons, HUD |
 //! | [`KillLog`] (component of the match entity) | match | HUD |
-//! | [`PlayerNames`] (resource) | the game | HUD |
+//! | [`PlayerRoster`] (resource) | the game | visuals, HUD |
 //! | [`MatchEnded`], [`MatchRestarted`] | match | every module with per-match state |
 
 mod damage;
@@ -38,8 +38,8 @@ mod kill_log;
 mod local_player;
 mod look;
 mod match_state;
-mod names;
 mod player;
+mod roster;
 mod schedule;
 mod score;
 mod spawn;
@@ -58,8 +58,8 @@ pub use kill_log::{KillEntry, KillLog};
 pub use local_player::{SoloPlayer, local_player_id};
 pub use look::{LookAngles, horizontal_axes, view_direction};
 pub use match_state::{MATCH_ENTITY_NAME, MatchEnded, MatchPhase, MatchRestarted, MatchState};
-pub use names::PlayerNames;
 pub use player::{CharacterSize, MAX_PLAYERS, PlayerId, player_entity_name};
+pub use roster::{PlayerRoster, RosterEntry};
 pub use schedule::GameplaySystems;
 pub use score::{ScoreEntry, Scoreboard};
 pub use spawn::{SpawnPoint, SpawnPoints};
@@ -71,6 +71,11 @@ pub use weapon::{WeaponKind, WeaponStatus, Weapons};
 /// plugins.
 pub fn add_gameplay_contract(app: &mut App) {
     add_net_contract(app);
+    if let Some(roster) = app.world().get_resource::<PlayerRoster>()
+        && let Err(problem) = roster.validate()
+    {
+        panic!("invalid PlayerRoster: {problem}");
+    }
     if let Some(size) = app.world().get_resource::<CharacterSize>()
         && let Err(problem) = size.validate()
     {
@@ -84,7 +89,7 @@ pub fn add_gameplay_contract(app: &mut App) {
         .register_net_state::<RespawnTimer>()
         .register_net_state::<Weapons>()
         .register_net_state::<KillLog>()
-        .init_resource::<PlayerNames>()
+        .init_resource::<PlayerRoster>()
         .init_resource::<CharacterSize>()
         .add_message::<PlayerFired>()
         .init_resource::<SoloPlayer>()

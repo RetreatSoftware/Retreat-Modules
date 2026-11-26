@@ -4,5 +4,7 @@ Rules and widgets: `crates/retreat_module_combat_hud/src/lib.rs`; numbers
 `CombatHudConfig::default()`. Commands: `hud.scoreboard <on|off>`, `assert.hud_shown`,
 `assert.hud_text`. Action: `hud_scoreboard` (Tab, held).
 
-Not built: damage flash, sounds. Players are told apart by name (the contract's `PlayerNames`, set by
-the game): the engine's HUD draws white text only, with no colors or background panels.
+Players are shown by the name and color of the contract's `PlayerRoster` (set by the game); text sits on
+a translucent panel.
+
+Not built: damage flash, sounds.

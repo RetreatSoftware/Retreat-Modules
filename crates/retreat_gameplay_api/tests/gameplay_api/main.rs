@@ -164,8 +164,13 @@ fn the_kill_log_keeps_the_latest_deaths_and_numbers_them_on() {
 }
 
 #[test]
-fn players_are_called_by_the_games_names_or_numbered() {
-    assert_eq!(PlayerNames::default().of(PlayerId(4)), "Player 4");
-    let names = PlayerNames(vec!["Red".to_string(), "Blue".to_string()]);
-    assert_eq!(names.of(PlayerId(3)), "Blue");
+fn players_take_their_name_and_color_from_the_roster_in_turn() {
+    assert_eq!(PlayerRoster::default().0.len(), MAX_PLAYERS);
+    let roster = PlayerRoster(vec![
+        RosterEntry::new("Ada", Color::BLACK),
+        RosterEntry::new("Bo", Color::WHITE),
+    ]);
+    assert_eq!(roster.name(PlayerId(3)), "Bo");
+    assert_eq!(roster.color(PlayerId(2)), Color::BLACK);
+    assert!(PlayerRoster(Vec::new()).validate().is_err());
 }

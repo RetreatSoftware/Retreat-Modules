@@ -1,7 +1,7 @@
 //! What the HUD shows of the match: clock, result, scoreboard and the kill feed. Pure.
 
 use retreat_gameplay_api::{
-    KillEntry, KillLog, MatchPhase, MatchState, PlayerId, PlayerNames, Scoreboard,
+    KillEntry, KillLog, MatchPhase, MatchState, PlayerId, PlayerRoster, Scoreboard,
 };
 use std::time::Duration;
 
@@ -23,13 +23,20 @@ pub struct MatchInput {
 pub struct MatchView {
     /// Time left, or the countdown to the next match.
     pub clock: Option<String>,
-    pub result: Option<String>,
+    pub result: Option<PlayerLine>,
     pub score_head: Option<String>,
     /// One line per player on the scoreboard, best first.
-    pub score_rows: Vec<String>,
+    pub score_rows: Vec<PlayerLine>,
 }
 
-pub fn match_view(input: &MatchInput, names: &PlayerNames) -> MatchView {
+/// A line about a player, shown in that player's color (`None`: about nobody).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PlayerLine {
+    pub player: Option<PlayerId>,
+    pub text: String,
+}
+
+pub fn match_view(input: &MatchInput, roster: &PlayerRoster) -> MatchView {
     // Whole seconds, rounded up: "1" until the moment itself.
     let seconds = |ticks: u32| {
         (input.timestep.as_secs_f64() * f64::from(ticks))
@@ -47,10 +54,13 @@ pub fn match_view(input: &MatchInput, names: &PlayerNames) -> MatchView {
             ticks_until_restart,
         }) => (
             Some(format!("Next match in {}", seconds(ticks_until_restart))),
-            Some(winner.map_or_else(
-                || "Draw".to_string(),
-                |winner| format!("{} wins", names.of(winner)),
-            )),
+            Some(PlayerLine {
+                player: winner,
+                text: winner.map_or_else(
+                    || "Draw".to_string(),
+                    |winner| format!("{} wins", roster.name(winner)),
+                ),
+            }),
             true,
         ),
     };
@@ -72,13 +82,16 @@ pub fn match_view(input: &MatchInput, names: &PlayerNames) -> MatchView {
                     } else {
                         ""
                     };
-                    score_line(
-                        mark,
-                        &names.of(line.player),
-                        &line.points.to_string(),
-                        &line.kills.to_string(),
-                        &line.deaths.to_string(),
-                    )
+                    PlayerLine {
+                        player: Some(line.player),
+                        text: score_line(
+                            mark,
+                            roster.name(line.player),
+                            &line.points.to_string(),
+                            &line.kills.to_string(),
+                            &line.deaths.to_string(),
+                        ),
+                    }
                 })
                 .collect()
         }),
@@ -90,13 +103,19 @@ fn score_line(mark: &str, name: &str, points: &str, kills: &str, deaths: &str) -
     format!("{mark:<2}{name:<9.9}{points:>4}{kills:>4}{deaths:>4}")
 }
 
-/// One line of the kill feed.
-pub fn kill_line(entry: &KillEntry, names: &PlayerNames) -> String {
-    let victim = names.of(entry.victim);
-    match entry.killer {
-        Some(killer) if killer != entry.victim => format!("{} killed {victim}", names.of(killer)),
+/// One line of the kill feed, in the killer's color (the victim's without one).
+pub fn kill_line(entry: &KillEntry, roster: &PlayerRoster) -> PlayerLine {
+    let victim = roster.name(entry.victim);
+    let text = match entry.killer {
+        Some(killer) if killer != entry.victim => {
+            format!("{} killed {victim}", roster.name(killer))
+        }
         Some(_) => format!("{victim} blew up"),
         None => format!("{victim} fell"),
+    };
+    PlayerLine {
+        player: Some(entry.killer.unwrap_or(entry.victim)),
+        text,
     }
 }
 

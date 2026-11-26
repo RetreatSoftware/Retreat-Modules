@@ -167,8 +167,11 @@ fn hit(app: &mut App, player: Entity, hits: u32) {
 
 const TICK: Duration = Duration::from_nanos(15_625_000);
 
-fn names() -> PlayerNames {
-    PlayerNames(vec!["Red".to_string(), "Blue".to_string()])
+fn names() -> PlayerRoster {
+    PlayerRoster(vec![
+        RosterEntry::new("Red", Color::srgb(0.9, 0.1, 0.1)),
+        RosterEntry::new("Blue", Color::srgb(0.1, 0.3, 0.9)),
+    ])
 }
 
 fn board() -> Scoreboard {
@@ -212,11 +215,16 @@ fn a_running_match_shows_its_clock_and_the_scoreboard_only_when_asked() {
         words(asked.score_head.as_deref().unwrap()),
         "Player Pts K D"
     );
-    let rows: Vec<String> = asked.score_rows.iter().map(|row| words(row)).collect();
+    let rows: Vec<String> = asked
+        .score_rows
+        .iter()
+        .map(|row| words(&row.text))
+        .collect();
     assert_eq!(rows, ["Blue 2 2 0", "> Red 0 0 2"]);
     let widths: Vec<usize> = asked
         .score_rows
         .iter()
+        .map(|row| &row.text)
         .chain(&asked.score_head)
         .map(String::len)
         .collect();
@@ -232,7 +240,11 @@ fn a_finished_match_shows_the_winner_the_scores_and_the_countdown() {
         }),
         &names(),
     );
-    assert_eq!(view.result.as_deref(), Some("Blue wins"));
+    let result = view.result.unwrap();
+    assert_eq!(
+        (result.text.as_str(), result.player),
+        ("Blue wins", Some(PlayerId(1)))
+    );
     assert_eq!(view.clock.as_deref(), Some("Next match in 2"));
     assert_eq!(view.score_rows.len(), 2);
     let draw = match_view(
@@ -242,7 +254,7 @@ fn a_finished_match_shows_the_winner_the_scores_and_the_countdown() {
         }),
         &names(),
     );
-    assert_eq!(draw.result.as_deref(), Some("Draw"));
+    assert_eq!(draw.result.unwrap().text, "Draw");
     assert_eq!(
         match_view(&MatchInput::default(), &names()),
         MatchView::default()
@@ -277,7 +289,7 @@ fn the_kill_feed_shows_new_deaths_for_a_while_and_skips_old_ones() {
     feed.tick(Some(&log), 3);
     let lines = |feed: &KillFeed, most| -> Vec<String> {
         feed.latest(most)
-            .map(|entry| kill_line(entry, &names()))
+            .map(|entry| kill_line(entry, &names()).text)
             .collect()
     };
     assert_eq!(lines(&feed, 4), ["Blue blew up", "Red fell"]);
@@ -318,16 +330,36 @@ fn the_match_widgets_follow_the_match_and_the_scoreboard_switch() {
     line(&mut app, "assert.hud_shown hud_match_score_head false");
     line(&mut app, "hud.scoreboard on");
     app.world_mut().run_schedule(Update);
-    line(
-        &mut app,
-        "assert.hud_text hud_match_score_row0 Player 1 2 2 0",
-    );
-    line(
-        &mut app,
-        "assert.hud_text hud_match_score_row1 > Player 0 0 0 2",
-    );
+    line(&mut app, "assert.hud_text hud_match_score_row0 Blue 2 2 0");
+    line(&mut app, "assert.hud_text hud_match_score_row1 > Red 0 0 2");
+    // A row is in its player's color on the panel the others share.
+    let panel = Some(CombatHudConfig::default().panel);
+    let hud = app.world().resource::<UiHud>();
+    let style = |id| hud.widget(id).unwrap().style;
+    let blue = readable(PlayerRoster::default().color(PlayerId(1)));
+    assert_eq!(style("hud_match_score_row0").color, blue);
+    assert_eq!(style("hud_match_score_row0").panel, panel);
+    assert_eq!(style("hud_match_score_head").panel, panel);
+    assert_eq!(style(CLOCK_WIDGET).color, Color::WHITE);
     line(&mut app, "assert.hud_shown hud_match_score_row2 false");
     line(&mut app, "hud.scoreboard off");
     app.world_mut().run_schedule(Update);
     line(&mut app, "assert.hud_shown hud_match_score_row0 false");
+}
+
+#[test]
+fn a_kill_is_in_the_killers_color_and_dark_colors_are_lightened() {
+    let entry = KillEntry {
+        number: 0,
+        victim: PlayerId(0),
+        killer: Some(PlayerId(1)),
+    };
+    assert_eq!(kill_line(&entry, &names()).player, Some(PlayerId(1)));
+    let fell = KillEntry {
+        killer: None,
+        ..entry
+    };
+    assert_eq!(kill_line(&fell, &names()).player, Some(PlayerId(0)));
+    let light = readable(Color::srgb(0.0, 0.0, 1.0)).to_srgba();
+    assert!(light.red > 0.3 && light.green > 0.3 && light.blue == 1.0);
 }

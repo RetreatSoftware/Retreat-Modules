@@ -17,6 +17,8 @@ pub struct CombatHudConfig {
     pub kill_feed_seconds: f32,
     /// Most deaths in the kill feed at once.
     pub kill_feed_lines: u32,
+    /// Behind every text, so it reads over a bright scene. Lines of one corner share one box.
+    pub panel: Color,
 }
 
 impl Default for CombatHudConfig {
@@ -29,6 +31,7 @@ impl Default for CombatHudConfig {
             scoreboard_font_size: 22.0,
             kill_feed_seconds: 4.0,
             kill_feed_lines: 4,
+            panel: Color::srgba(0.0, 0.0, 0.0, 0.85),
         }
     }
 }
