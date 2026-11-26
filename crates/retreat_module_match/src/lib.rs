@@ -16,13 +16,15 @@ mod commands;
 mod config;
 mod lifecycle;
 mod rules;
+mod sounds;
 
 use bevy::prelude::*;
-use retreat_engine_api::AppCommandExt;
+use retreat_engine_api::{AppCommandExt, AppNetStateExt};
 use retreat_gameplay_api::{GameplaySystems, add_gameplay_contract};
 
 pub use config::MatchConfig;
 pub use rules::{score_death, scoreboard_for};
+pub use sounds::MatchNumber;
 
 /// Adds the match rules and commands. Insert a [`MatchConfig`] first to change the numbers.
 pub struct MatchModulePlugin;
@@ -34,7 +36,12 @@ impl Plugin for MatchModulePlugin {
         if let Err(problem) = app.world().resource::<MatchConfig>().validate() {
             panic!("invalid MatchConfig: {problem}");
         }
-        app.register_command("match.start", "match.start", commands::start_command)
+        app.register_net_state::<MatchNumber>()
+            .add_systems(
+                FixedUpdate,
+                sounds::play_match_sounds.after(GameplaySystems::Restart),
+            )
+            .register_command("match.start", "match.start", commands::start_command)
             .register_command("match.end", "match.end", commands::end_command)
             .register_command("match.restart", "match.restart", commands::restart_command)
             .register_command(

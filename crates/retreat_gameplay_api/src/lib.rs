@@ -30,6 +30,7 @@
 //! | [`Scoreboard`], [`MatchState`] (components of the match entity) | match | health, weapons, HUD |
 //! | [`KillLog`] (component of the match entity) | match | HUD |
 //! | [`PlayerRoster`] (resource) | the game | visuals, HUD |
+//! | [`SoundCue`] (in module configs) | the game | modules that play sounds |
 //! | [`MatchEnded`], [`MatchRestarted`] | match | every module with per-match state |
 
 mod damage;
@@ -42,13 +43,14 @@ mod player;
 mod roster;
 mod schedule;
 mod score;
+mod sound;
 mod spawn;
 mod spawn_choice;
 mod time;
 mod weapon;
 
 use bevy::prelude::*;
-use retreat_engine_api::{AppNetStateExt, InputActionSystems, add_net_contract};
+use retreat_engine_api::{AppNetStateExt, InputActionSystems, SoundEvents, add_net_contract};
 
 pub use damage::{
     DamageApplied, DamageCause, DamageRequested, PlayerDied, PlayerFired, PlayerRespawned,
@@ -62,6 +64,7 @@ pub use player::{CharacterSize, MAX_PLAYERS, PlayerId, player_entity_name};
 pub use roster::{PlayerRoster, RosterEntry};
 pub use schedule::GameplaySystems;
 pub use score::{ScoreEntry, Scoreboard};
+pub use sound::{SoundCue, event_time, validate_cues};
 pub use spawn::{SpawnPoint, SpawnPoints};
 pub use spawn_choice::choose_spawn_point;
 pub use time::ticks_from_seconds;
@@ -90,6 +93,7 @@ pub fn add_gameplay_contract(app: &mut App) {
         .register_net_state::<Weapons>()
         .register_net_state::<KillLog>()
         .init_resource::<PlayerRoster>()
+        .init_resource::<SoundEvents>()
         .init_resource::<CharacterSize>()
         .add_message::<PlayerFired>()
         .init_resource::<SoloPlayer>()

@@ -1,6 +1,7 @@
 //! The module's tuning numbers (metres, seconds, radians).
 
 use bevy::prelude::*;
+use retreat_gameplay_api::{SoundCue, validate_cues};
 
 /// A game changes these by inserting the resource before adding the plugin.
 #[derive(Resource, Debug, Clone, PartialEq)]
@@ -30,6 +31,10 @@ pub struct MovementConfig {
     pub step_height: f32,
     /// Steepest ground a character walks on.
     pub max_slope_degrees: f32,
+    /// Heard from a character that jumps.
+    pub jump_sound: Option<SoundCue>,
+    /// Heard from a character that dashes.
+    pub dash_sound: Option<SoundCue>,
 }
 
 impl Default for MovementConfig {
@@ -52,6 +57,8 @@ impl Default for MovementConfig {
             max_pitch: 85.0_f32.to_radians(),
             step_height: 0.35,
             max_slope_degrees: 45.0,
+            jump_sound: None,
+            dash_sound: None,
         }
     }
 }
@@ -88,6 +95,6 @@ impl MovementConfig {
         if self.max_pitch >= std::f32::consts::FRAC_PI_2 {
             return Err("max_pitch must be below a quarter turn".to_string());
         }
-        Ok(())
+        validate_cues([&self.jump_sound, &self.dash_sound])
     }
 }

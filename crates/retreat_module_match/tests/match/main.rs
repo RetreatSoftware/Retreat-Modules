@@ -3,7 +3,7 @@
 //! (Retreat-Arena).
 
 use bevy::prelude::*;
-use retreat_engine_api::{CommandRegistry, CommandResult, run_command_line};
+use retreat_engine_api::{CommandRegistry, CommandResult, SoundEvents, run_command_line};
 use retreat_gameplay_api::*;
 use retreat_module_match::{MatchConfig, MatchModulePlugin};
 
@@ -221,4 +221,29 @@ fn the_clock_of_the_current_phase_can_be_set() {
     ticks(&mut app, RESULT_TICKS);
     ok(&mut app, "assert.match_finished");
     assert!(run(&mut app, "match.set_clock 0").is_err());
+}
+
+fn heard(app: &mut App) -> Vec<String> {
+    std::mem::take(&mut app.world_mut().resource_mut::<SoundEvents>().requests)
+        .into_iter()
+        .map(|event| event.id)
+        .collect()
+}
+
+#[test]
+fn every_end_and_every_new_match_is_heard_once() {
+    let mut app = app();
+    {
+        let mut config = app.world_mut().resource_mut::<MatchConfig>();
+        config.start_sound = Some(SoundCue::new("sounds/start.wav", 0.5));
+        config.end_sound = Some(SoundCue::new("sounds/end.wav", 0.5));
+    }
+    join(&mut app, 1);
+    ticks(&mut app, 5);
+    assert!(heard(&mut app).is_empty(), "joining is silent");
+    ticks(&mut app, LENGTH_TICKS + RESULT_TICKS + 5);
+    assert_eq!(heard(&mut app), ["match/0/end", "match/1/start"]);
+    ok(&mut app, "match.restart");
+    ticks(&mut app, 3);
+    assert_eq!(heard(&mut app), ["match/2/start"]);
 }

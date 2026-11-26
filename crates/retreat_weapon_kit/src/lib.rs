@@ -5,12 +5,14 @@
 //! - [`player`]: who a command acts for and who may fight;
 //! - [`inventory`]: a player's entry in the contract's `Weapons`;
 //! - [`trigger`]: this machine's buttons and aim, turned into what to send;
+//! - [`sound`]: the reload sound;
 //! - [`commands`]: the shared parts of `<weapon>.reload` and `assert.<weapon>_*`.
 
 pub mod commands;
 pub mod inventory;
 pub mod player;
 pub mod rules;
+pub mod sound;
 pub mod trigger;
 
 pub use commands::{assert_weapon, reload_weapon};
@@ -19,4 +21,5 @@ pub use player::{actor, character_of, dead_players, may_fight, refused};
 pub use rules::{
     LATE_INPUT_TOLERANCE_TICKS, WeaponTicks, advance_weapon, ready_to_send, try_fire, try_reload,
 };
-pub use trigger::{Trigger, TriggerOrder, aim_angles, issue, pull_trigger};
+pub use sound::play_reload;
+pub use trigger::{Trigger, TriggerMemory, TriggerOrder, aim_angles, issue, pull_trigger};

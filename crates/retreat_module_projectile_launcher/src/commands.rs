@@ -44,6 +44,7 @@ pub(crate) fn fire_command(world: &mut World, args: &CommandArgs) -> CommandResu
         return refused(world, args, "the launcher is not ready");
     }
     weapons.put(weapon);
+    next.shots += 1;
     launcher.set_if_neq(next);
     world.write_message(PlayerFired { player });
     let eye = world.resource::<CharacterSize>().eye(center);

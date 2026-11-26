@@ -10,7 +10,8 @@ use crate::widgets::{
 };
 use bevy::prelude::*;
 use retreat_engine_api::{
-    HudStyle, InputActions, NetLocalClient, NetReplaying, RetiredEntity, UiHud,
+    EffectTime, HudStyle, InputActions, NetLocalClient, NetReplaying, RetiredEntity, SoundEvents,
+    UiHud,
 };
 use retreat_gameplay_api::{
     Health, KillLog, MatchState, PlayerId, PlayerRoster, RespawnTimer, Scoreboard, SoloPlayer,
@@ -39,12 +40,12 @@ pub(crate) struct ScoreboardSwitch(pub bool);
 /// Starts the marker when the server counts a new hit. In ticks, so a script sees the same thing.
 pub(crate) fn time_hit_marker(
     players: Query<(&PlayerId, &Weapons), Without<RetiredEntity>>,
-    client: Res<NetLocalClient>,
-    solo: Res<SoloPlayer>,
+    (client, solo): (Res<NetLocalClient>, Res<SoloPlayer>),
     replaying: Res<NetReplaying>,
     config: Res<CombatHudConfig>,
     time: Res<Time<Fixed>>,
     mut marker: ResMut<HitMarker>,
+    mut sounds: ResMut<SoundEvents>,
 ) {
     if replaying.0 {
         return;
@@ -60,6 +61,9 @@ pub(crate) fn time_hit_marker(
     {
         marker.ticks_left = ticks_from_seconds(config.hit_marker_seconds, time.timestep()).max(1);
         marker.unshown = true;
+        if let Some(cue) = &config.hit_sound {
+            sounds.play(cue.event(format!("hud/hit/{now}"), None, EffectTime::Present));
+        }
     }
     marker.seen = hits;
 }

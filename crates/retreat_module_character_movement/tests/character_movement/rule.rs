@@ -166,3 +166,21 @@ fn the_dead_cannot_steer_jump_or_dash() {
     };
     assert_eq!(body.tick_as(everything, false), Vec3::ZERO);
 }
+
+#[test]
+fn every_jump_and_dash_is_counted_once() {
+    let mut body = Body::standing();
+    let jump = PlayerInput {
+        jump: true,
+        ..default()
+    };
+    body.run(jump, 3);
+    assert_eq!((body.state.jumps, body.state.dashes), (1, 0));
+    body.run(PlayerInput::default(), 64);
+    let dash = PlayerInput {
+        dash: true,
+        ..default()
+    };
+    body.run(dash, 3);
+    assert_eq!((body.state.jumps, body.state.dashes), (1, 1));
+}

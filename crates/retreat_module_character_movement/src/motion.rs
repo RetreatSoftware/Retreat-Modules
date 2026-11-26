@@ -63,6 +63,7 @@ pub fn step_movement(
         state.dash_ticks_left = ticks_from_seconds(config.dash_seconds, step.tick);
         state.dash_cooldown_ticks = ticks_from_seconds(config.dash_cooldown_seconds, step.tick);
         state.air_dash_used = !state.grounded;
+        state.dashes += 1;
     }
     if state.dash_ticks_left > 0 && step.can_act {
         state.dash_ticks_left -= 1;
@@ -83,6 +84,7 @@ pub fn step_movement(
         // The speed that reaches `jump_height` against gravity.
         vertical = ops::sqrt(2.0 * config.gravity * config.jump_height);
         state.grounded = false;
+        state.jumps += 1;
         flat = accelerate(
             flat,
             wish_direction,

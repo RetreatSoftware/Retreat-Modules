@@ -22,6 +22,8 @@ pub(crate) fn teleport_respawned(
             // A new life: no dash or jump carries over. The held input stays.
             *state = MovementState {
                 input: state.input,
+                jumps: state.jumps,
+                dashes: state.dashes,
                 ..default()
             };
             *look = LookAngles {

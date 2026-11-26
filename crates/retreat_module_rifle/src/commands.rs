@@ -2,11 +2,12 @@
 
 use crate::config::RifleConfig;
 use crate::state::{RifleShot, RifleState, ticks_of};
-use crate::tracer::play_shot;
+use crate::tracer::ShotOutput;
+use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
 use retreat_engine_api::{
     CommandArgs, CommandOutcome, CommandResult, EffectTime, NetLocalClient, RayCast, RetiredEntity,
-    VisualEffects, cast_ray_at,
+    cast_ray_at,
 };
 use retreat_gameplay_api::{
     CharacterSize, DamageCause, DamageRequested, LookAngles, PlayerFired, PlayerId, WeaponKind,
@@ -60,12 +61,11 @@ pub(crate) fn fire_command(world: &mut World, args: &CommandArgs) -> CommandResu
     let (to, target) = cast_shot(world, shooter, from, aim, view_tick);
     let shot = RifleShot { count, from, to };
     world.entity_mut(shooter).insert(shot);
-    play_shot(
-        &mut world.resource_mut::<VisualEffects>(),
-        player,
-        shot,
-        EffectTime::Present,
-    );
+    let mut output = SystemState::<ShotOutput>::new(world);
+    output
+        .get_mut(world)
+        .expect("the shot output's resources")
+        .play(player, shot, EffectTime::Present);
     // A client only predicts its ammo and the look: hits are the server's to decide.
     if world.resource::<NetLocalClient>().0.is_none()
         && let Some(target) = target

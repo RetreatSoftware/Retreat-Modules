@@ -20,6 +20,7 @@ mod input;
 mod motion;
 mod respawn;
 mod simulate;
+mod sounds;
 mod state;
 
 use bevy::prelude::*;
@@ -117,6 +118,7 @@ impl Plugin for CharacterMovementModulePlugin {
                     input::send_input,
                     simulate::move_characters.in_set(PhysicsControlSystems),
                     respawn::teleport_respawned.in_set(PhysicsControlSystems),
+                    sounds::play_movement_sounds,
                 )
                     .chain()
                     // Spawns, deaths and respawns of this tick are decided (the sets also run

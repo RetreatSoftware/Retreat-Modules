@@ -87,3 +87,18 @@ fn aiming_points_from_the_eyes_at_the_target() {
     assert!((left_up.pitch - ops::atan2(1.0, 1.0)).abs() < 1.0e-6);
     assert_eq!(aim_angles(Vec3::ONE, Vec3::ONE), None);
 }
+
+#[test]
+fn the_click_that_takes_the_cursor_does_not_shoot() {
+    let mut memory = TriggerMemory::default();
+    // The press that asks for the cursor, held for a while.
+    assert!(!memory.fires(true, true));
+    assert!(!memory.fires(true, true));
+    assert!(!memory.fires(false, true));
+    assert!(memory.fires(true, true));
+    // After the cursor was given back, the next click only takes it again.
+    assert!(!memory.fires(false, false));
+    assert!(!memory.fires(true, true));
+    // A game that never captures the cursor shoots at once.
+    assert!(TriggerMemory::default().fires(true, false));
+}

@@ -2,12 +2,12 @@
 
 use crate::config::LauncherConfig;
 use bevy::prelude::*;
-use retreat_engine_api::{NetState, RemoveNetEntity, RetiredEntity};
+use retreat_engine_api::{NetLocalClient, NetState, RemoveNetEntity, RetiredEntity, SoundEvents};
 use retreat_gameplay_api::{
-    DamageApplied, DamageCause, Health, MatchRestarted, PlayerId, PlayerRespawned, WeaponKind,
-    Weapons,
+    DamageApplied, DamageCause, Health, MatchRestarted, PlayerId, PlayerRespawned, SoloPlayer,
+    WeaponKind, Weapons, local_player_id,
 };
-use retreat_weapon_kit::{WeaponTicks, advance_weapon, equip, loaded};
+use retreat_weapon_kit::{WeaponTicks, advance_weapon, equip, loaded, play_reload};
 use serde::{Deserialize, Serialize};
 
 /// On a player: what only the launcher needs; ammo and reload are in the contract's `Weapons`.
@@ -15,6 +15,8 @@ use serde::{Deserialize, Serialize};
 pub struct LauncherState {
     /// Ticks until the next rocket.
     pub cooldown_ticks: u32,
+    /// Rockets fired since the player appeared.
+    pub shots: u32,
 }
 
 impl NetState for LauncherState {
@@ -127,5 +129,24 @@ pub(crate) fn remove_rockets(
     }
     for rocket in &rockets {
         commands.entity(rocket).insert(RemoveNetEntity);
+    }
+}
+
+/// This machine's player hears its launcher reload.
+pub(crate) fn play_own_reload(
+    players: Query<(&PlayerId, &Weapons, &LauncherState), Without<RetiredEntity>>,
+    client: Res<NetLocalClient>,
+    solo: Res<SoloPlayer>,
+    config: Res<LauncherConfig>,
+    mut sounds: ResMut<SoundEvents>,
+) {
+    let local = local_player_id(*client, *solo);
+    for (player, weapons, launcher) in &players {
+        if Some(*player) == local
+            && let Some(weapon) = weapons.of(WeaponKind::Launcher)
+        {
+            let cue = config.reload_sound.as_ref();
+            play_reload(&mut sounds, cue, *player, weapon, launcher.shots);
+        }
     }
 }

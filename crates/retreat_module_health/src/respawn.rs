@@ -1,7 +1,7 @@
 //! Getting health, protection and respawn timers, and coming back to life.
 
 use crate::config::HealthConfig;
-use crate::state::SpawnProtection;
+use crate::state::{Life, SpawnProtection};
 use bevy::prelude::*;
 use retreat_engine_api::{Intangible, RetiredEntity};
 use retreat_gameplay_api::{
@@ -42,7 +42,7 @@ pub(crate) fn attach_health(
     for entity in &new_players {
         commands
             .entity(entity)
-            .insert(Health::full(config.max_health));
+            .insert((Health::full(config.max_health), Life::default()));
         protect(&mut commands, entity, &config, &time);
     }
 }

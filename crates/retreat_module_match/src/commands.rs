@@ -3,6 +3,7 @@
 use crate::config::MatchConfig;
 use crate::lifecycle::{finished, new_match, running};
 use crate::rules::scoreboard_for;
+use crate::sounds::MatchNumber;
 use bevy::prelude::*;
 use retreat_engine_api::{CommandArgs, CommandError, CommandOutcome, CommandResult, RetiredEntity};
 use retreat_gameplay_api::{
@@ -169,6 +170,9 @@ fn restart(world: &mut World) {
         .insert((state, scoreboard_for(&present)));
     if let Some(mut log) = world.get_mut::<KillLog>(entity) {
         log.clear();
+    }
+    if let Some(mut number) = world.get_mut::<MatchNumber>(entity) {
+        number.0 += 1;
     }
     world.write_message(MatchRestarted);
 }

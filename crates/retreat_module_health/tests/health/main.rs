@@ -4,3 +4,4 @@
 mod damage;
 mod harness;
 mod respawn;
+mod sounds;

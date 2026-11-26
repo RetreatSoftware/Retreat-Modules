@@ -1,6 +1,7 @@
 //! The module's tuning numbers.
 
 use bevy::prelude::*;
+use retreat_gameplay_api::{SoundCue, validate_cues};
 
 /// A game changes these by inserting the resource before adding the plugin.
 #[derive(Resource, Debug, Clone, PartialEq)]
@@ -19,6 +20,8 @@ pub struct CombatHudConfig {
     pub kill_feed_lines: u32,
     /// Behind every text, so it reads over a bright scene. Lines of one corner share one box.
     pub panel: Color,
+    /// Heard by this machine's player with the hit marker.
+    pub hit_sound: Option<SoundCue>,
 }
 
 impl Default for CombatHudConfig {
@@ -32,6 +35,7 @@ impl Default for CombatHudConfig {
             kill_feed_seconds: 4.0,
             kill_feed_lines: 4,
             panel: Color::srgba(0.0, 0.0, 0.0, 0.85),
+            hit_sound: None,
         }
     }
 }
@@ -50,6 +54,6 @@ impl CombatHudConfig {
                 return Err(format!("{field} must be more than 0, got {value}"));
             }
         }
-        Ok(())
+        validate_cues([&self.hit_sound])
     }
 }

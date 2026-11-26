@@ -174,3 +174,25 @@ fn players_take_their_name_and_color_from_the_roster_in_turn() {
     assert_eq!(roster.color(PlayerId(2)), Color::BLACK);
     assert!(PlayerRoster(Vec::new()).validate().is_err());
 }
+
+#[test]
+fn a_cue_becomes_a_positional_event_and_others_sound_in_the_past() {
+    use retreat_engine_api::{EffectTime, NetLocalClient};
+    let cue = SoundCue::new("sounds/a.wav", 0.5);
+    let event = cue.event("a/1".to_string(), Some(Vec3::X), EffectTime::Present);
+    assert_eq!((event.volume, event.at.unwrap().position), (0.5, Vec3::X));
+    assert!(
+        cue.event("a/2".to_string(), None, EffectTime::Present)
+            .at
+            .is_none()
+    );
+    let client = NetLocalClient(Some(1));
+    assert_eq!(event_time(client, PlayerId(1)), EffectTime::Present);
+    assert_eq!(event_time(client, PlayerId(2)), EffectTime::RemoteView);
+    assert_eq!(
+        event_time(NetLocalClient(None), PlayerId(2)),
+        EffectTime::Present
+    );
+    assert!(validate_cues([&None, &Some(cue)]).is_ok());
+    assert!(validate_cues([&Some(SoundCue::new("a.wav", 3.0))]).is_err());
+}

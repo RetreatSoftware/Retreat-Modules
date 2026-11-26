@@ -6,7 +6,7 @@ use crate::rules::ready_to_send;
 use bevy::math::ops;
 use bevy::prelude::*;
 use retreat_engine_api::{
-    GameCamera, InputActions, NetInputQueue, NetLocalClient, NetViewTick, RayCast,
+    CursorCapture, GameCamera, InputActions, NetInputQueue, NetLocalClient, NetViewTick, RayCast,
     RemoteInterpolation, cast_ray_at, run_command_line,
 };
 use retreat_gameplay_api::{
@@ -36,19 +36,45 @@ pub enum TriggerOrder {
     },
 }
 
+/// What the trigger remembers from the tick before (a `Local` of the module's input system).
+#[derive(Debug, Default)]
+pub struct TriggerMemory {
+    reload_was_down: bool,
+    cursor_was_wanted: bool,
+    /// The fire button is down from the click that took the cursor.
+    swallowed: bool,
+}
+
+impl TriggerMemory {
+    /// Whether the held fire button counts: not while it is the press that asked for the cursor
+    /// (a click into the game takes the mouse, it does not shoot). Pure.
+    pub fn fires(&mut self, fire_held: bool, cursor_wanted: bool) -> bool {
+        if fire_held && cursor_wanted && !self.cursor_was_wanted {
+            self.swallowed = true;
+        }
+        self.cursor_was_wanted = cursor_wanted;
+        self.swallowed &= fire_held;
+        fire_held && !self.swallowed
+    }
+}
+
 /// `cooldown` is the local character's weapon cooldown (`None` before it has the weapon).
 /// Call it from `FixedUpdate`, never during a replay: this tick's buttons are not a replay's.
 pub fn pull_trigger(
     world: &mut World,
     trigger: Trigger,
     cooldown: fn(&World, Entity) -> Option<u32>,
-    reload_was_down: &mut bool,
+    memory: &mut TriggerMemory,
 ) -> Option<TriggerOrder> {
+    let cursor_wanted = world
+        .get_resource::<CursorCapture>()
+        .is_some_and(|cursor| cursor.wanted);
     let actions = world.resource::<InputActions>();
-    let fire = actions.is_held(trigger.fire_action);
+    let fire_held = actions.is_held(trigger.fire_action);
     let reload = actions.is_held(trigger.reload_action);
-    let reload_pressed = reload && !*reload_was_down;
-    *reload_was_down = reload;
+    let fire = memory.fires(fire_held, cursor_wanted);
+    let reload_pressed = reload && !memory.reload_was_down;
+    memory.reload_was_down = reload;
     if !fire && !reload_pressed {
         return None;
     }

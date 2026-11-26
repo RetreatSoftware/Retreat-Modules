@@ -128,8 +128,8 @@ fn a_rocket_flies_explodes_on_a_wall_once_and_is_removed() {
     ok(&mut app, "assert.launcher_rockets 1");
     until_exploded(&mut app);
     let shown = effects(&mut app);
-    assert_eq!(shown.len(), 1);
-    assert_eq!(shown[0].id, "rocket/local/local/0/boom");
+    assert_eq!(shown.len(), blast_look(3.0).len());
+    assert_eq!(shown[0].id, "rocket/local/local/0/boom/core");
     assert!((shown[0].position.z + 9.85).abs() < 1.0e-3);
     ticks(&mut app, LINGER_TICKS + 1);
     assert!(effects(&mut app).is_empty());
@@ -284,4 +284,36 @@ fn a_new_match_removes_the_rockets_in_flight() {
         .world_mut()
         .query_filtered::<&Rocket, With<RemoveNetEntity>>();
     assert_eq!(gone.iter(app.world()).count(), 1);
+}
+
+#[test]
+fn an_explosion_stays_inside_its_blast_radius() {
+    for part in blast_look(3.0) {
+        assert!(part.offset.length() + part.radius <= 3.0, "{part:?}");
+    }
+}
+
+#[test]
+fn the_launch_and_the_explosion_are_heard_where_they_happen() {
+    let mut app = app(30.0);
+    {
+        let mut config = app.world_mut().resource_mut::<LauncherConfig>();
+        config.launch_sound = Some(SoundCue::new("sounds/launch.wav", 0.5));
+        config.explosion_sound = Some(SoundCue::new("sounds/boom.wav", 0.5));
+    }
+    app.world_mut().resource_mut::<Wall>().0 = Some(-10.0);
+    ok(&mut app, "launcher.fire 0 0");
+    until_exploded(&mut app);
+    let mut heard: Vec<(String, f32)> =
+        std::mem::take(&mut app.world_mut().resource_mut::<SoundEvents>().requests)
+            .into_iter()
+            .map(|event| (event.id, event.at.unwrap().position.z))
+            .collect();
+    heard.dedup_by(|a, b| a.0 == b.0);
+    assert_eq!(heard.len(), 2, "{heard:?}");
+    assert_eq!(heard[0].0, "rocket/local/local/0/launch");
+    assert!(
+        heard[1].0.ends_with("/boom") && heard[1].1 < -9.0,
+        "{heard:?}"
+    );
 }

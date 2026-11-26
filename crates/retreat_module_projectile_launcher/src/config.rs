@@ -1,6 +1,7 @@
 //! The module's tuning numbers.
 
 use bevy::prelude::*;
+use retreat_gameplay_api::{SoundCue, validate_cues};
 
 /// A game changes these by inserting the resource before adding the plugin.
 #[derive(Resource, Debug, Clone, PartialEq)]
@@ -27,6 +28,12 @@ pub struct LauncherConfig {
     pub reload_seconds: f32,
     /// How far the aim looks for what the crosshair shows, metres.
     pub aim_range: f32,
+    /// Heard from where a rocket starts.
+    pub launch_sound: Option<SoundCue>,
+    /// Heard from where it explodes.
+    pub explosion_sound: Option<SoundCue>,
+    /// Heard by the reloading player.
+    pub reload_sound: Option<SoundCue>,
 }
 
 impl Default for LauncherConfig {
@@ -43,6 +50,9 @@ impl Default for LauncherConfig {
             magazine: 4,
             reload_seconds: 2.0,
             aim_range: 100.0,
+            launch_sound: None,
+            explosion_sound: None,
+            reload_sound: None,
         }
     }
 }
@@ -72,6 +82,10 @@ impl LauncherConfig {
                 return Err(format!("{field} must be more than 0, got {value}"));
             }
         }
-        Ok(())
+        validate_cues([
+            &self.launch_sound,
+            &self.explosion_sound,
+            &self.reload_sound,
+        ])
     }
 }

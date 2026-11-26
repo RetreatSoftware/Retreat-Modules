@@ -35,11 +35,16 @@ fn no_shape(_: &mut World, _: &ShapeCast, _: f64) -> Option<CastHit> {
 }
 
 fn app() -> App {
+    app_with(RifleConfig::default())
+}
+
+fn app_with(config: RifleConfig) -> App {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
         .init_resource::<CommandRegistry>()
         .init_resource::<InputActions>()
         .init_resource::<LastShot>()
+        .insert_resource(config)
         .insert_resource(LagCaster {
             ray: hits_player_two,
             shape: no_shape,
@@ -239,10 +244,10 @@ fn a_network_client_queues_its_shots_one_tick_ahead_at_the_same_rate() {
 #[test]
 fn a_tracer_spreads_evenly_to_the_end_of_the_shot() {
     let points = tracer_points(Vec3::ZERO, Vec3::NEG_Z * 6.0);
-    assert_eq!(points.len(), 5);
+    assert_eq!(points.len(), 9);
     assert_eq!(*points.last().unwrap(), Vec3::NEG_Z * 6.0);
-    assert!(points[0].abs_diff_eq(Vec3::NEG_Z * 1.2, 1.0e-6));
-    assert_eq!(tracer_points(Vec3::ZERO, Vec3::NEG_Z * 100.0).len(), 20);
+    assert!(points[0].abs_diff_eq(Vec3::NEG_Z * (6.0 / 9.0), 1.0e-6));
+    assert_eq!(tracer_points(Vec3::ZERO, Vec3::NEG_Z * 100.0).len(), 32);
     assert!(tracer_points(Vec3::ONE, Vec3::ONE).is_empty());
 }
 
@@ -294,4 +299,23 @@ fn a_client_shows_another_players_shot_when_its_view_gets_there() {
         shown.iter().filter(|(id, _)| id.ends_with("flash")).count(),
         1
     );
+}
+
+#[test]
+fn a_shot_and_a_reload_are_each_heard_once_per_id() {
+    let mut app = app_with(RifleConfig {
+        shot_sound: Some(SoundCue::new("sounds/shot.wav", 0.5)),
+        reload_sound: Some(SoundCue::new("sounds/reload.wav", 0.5)),
+        ..default()
+    });
+    ok(&mut app, "rifle.fire 0 0");
+    ok(&mut app, "rifle.reload");
+    ticks(&mut app, 3);
+    let mut heard: Vec<String> =
+        std::mem::take(&mut app.world_mut().resource_mut::<SoundEvents>().requests)
+            .into_iter()
+            .map(|event| event.id)
+            .collect();
+    heard.dedup();
+    assert_eq!(heard, ["rifle/1/1", "rifle/1/reload/1"]);
 }

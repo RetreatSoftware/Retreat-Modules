@@ -1,6 +1,7 @@
 //! The module's tuning numbers.
 
 use bevy::prelude::*;
+use retreat_gameplay_api::{SoundCue, validate_cues};
 
 /// A game changes these by inserting the resource before adding the plugin.
 #[derive(Resource, Debug, Clone, PartialEq)]
@@ -12,6 +13,10 @@ pub struct HealthConfig {
     pub spawn_protection_seconds: f32,
     /// A living player below this height dies.
     pub fall_out_height: f32,
+    /// Heard from a player that dies.
+    pub death_sound: Option<SoundCue>,
+    /// Heard from a player that comes back.
+    pub respawn_sound: Option<SoundCue>,
 }
 
 impl Default for HealthConfig {
@@ -21,6 +26,8 @@ impl Default for HealthConfig {
             respawn_delay_seconds: 3.0,
             spawn_protection_seconds: 1.0,
             fall_out_height: -10.0,
+            death_sound: None,
+            respawn_sound: None,
         }
     }
 }
@@ -42,6 +49,6 @@ impl HealthConfig {
         if !self.fall_out_height.is_finite() {
             return Err("fall_out_height must be a finite number".to_string());
         }
-        Ok(())
+        validate_cues([&self.death_sound, &self.respawn_sound])
     }
 }

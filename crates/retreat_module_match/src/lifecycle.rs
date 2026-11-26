@@ -2,6 +2,7 @@
 
 use crate::config::MatchConfig;
 use crate::rules::{score_death, scoreboard_for};
+use crate::sounds::MatchNumber;
 use bevy::prelude::*;
 use retreat_engine_api::RetiredEntity;
 use retreat_gameplay_api::{
@@ -33,12 +34,13 @@ pub(crate) fn new_match(
     players: &[PlayerId],
     config: &MatchConfig,
     time: &Time<Fixed>,
-) -> (Name, MatchState, Scoreboard, KillLog) {
+) -> (Name, MatchState, Scoreboard, KillLog, MatchNumber) {
     (
         Name::new(MATCH_ENTITY_NAME),
         running(config, time),
         scoreboard_for(players),
         KillLog::default(),
+        MatchNumber::default(),
     )
 }
 
@@ -55,9 +57,17 @@ pub(crate) fn start_with_first_player(
     }
 }
 
+/// What the match entity carries.
+type MatchParts = (
+    &'static mut MatchState,
+    &'static mut Scoreboard,
+    &'static mut KillLog,
+    &'static mut MatchNumber,
+);
+
 pub(crate) fn score_and_advance(
     mut deaths: MessageReader<PlayerDied>,
-    mut matches: Query<(&mut MatchState, &mut Scoreboard, &mut KillLog), Without<RetiredEntity>>,
+    mut matches: Query<MatchParts, Without<RetiredEntity>>,
     players: Query<&PlayerId, Without<RetiredEntity>>,
     config: Res<MatchConfig>,
     time: Res<Time<Fixed>>,
@@ -68,7 +78,7 @@ pub(crate) fn score_and_advance(
     let deaths: Vec<PlayerDied> = deaths.read().copied().collect();
     let mut present: Vec<PlayerId> = players.iter().copied().collect();
     present.sort();
-    for (mut state, mut board, mut log) in &mut matches {
+    for (mut state, mut board, mut log, mut number) in &mut matches {
         // One line per present player.
         let mut next = scoreboard_for(&present);
         for &player in &present {
@@ -106,6 +116,7 @@ pub(crate) fn score_and_advance(
                     *state = running(&config, &time);
                     next = scoreboard_for(&present);
                     log.clear();
+                    number.0 += 1;
                     restarted.write(MatchRestarted);
                 }
             }

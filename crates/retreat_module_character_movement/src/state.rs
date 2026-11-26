@@ -35,6 +35,9 @@ pub struct MovementState {
     pub dash_direction: Vec2,
     /// One dash per time in the air.
     pub air_dash_used: bool,
+    /// Jumps and dashes so far: a rise is heard.
+    pub jumps: u32,
+    pub dashes: u32,
 }
 
 impl NetState for MovementState {

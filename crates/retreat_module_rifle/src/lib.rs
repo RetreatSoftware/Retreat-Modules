@@ -81,7 +81,8 @@ impl Plugin for RifleModulePlugin {
                         .in_set(GameplaySystems::Act),
                     state::count_hits.in_set(GameplaySystems::Match),
                     state::refill_respawned.in_set(GameplaySystems::Respawned),
-                    tracer::show_other_shots.after(GameplaySystems::Respawned),
+                    (tracer::show_other_shots, tracer::play_own_reload)
+                        .after(GameplaySystems::Respawned),
                 ),
             );
     }

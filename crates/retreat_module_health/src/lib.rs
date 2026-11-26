@@ -21,6 +21,7 @@ mod commands;
 mod config;
 mod damage;
 mod respawn;
+mod sounds;
 mod state;
 
 use bevy::prelude::*;
@@ -30,7 +31,7 @@ use retreat_gameplay_api::{GameplaySystems, add_gameplay_contract};
 pub use commands::HealthDummy;
 pub use config::HealthConfig;
 pub use retreat_gameplay_api::RespawnTimer;
-pub use state::SpawnProtection;
+pub use state::{Life, SpawnProtection};
 
 /// Adds the health rules and commands. Insert a [`HealthConfig`] first to change the numbers.
 pub struct HealthModulePlugin;
@@ -44,6 +45,7 @@ impl Plugin for HealthModulePlugin {
         }
         app.add_message::<damage::KillRequested>()
             .register_net_state::<SpawnProtection>()
+            .register_net_state::<Life>()
             .register_net_state::<HealthDummy>()
             .register_command(
                 "health.add_dummy",
@@ -85,7 +87,9 @@ impl Plugin for HealthModulePlugin {
                         .chain()
                         .in_set(GameplaySystems::Damage),
                     respawn::respawn_all_on_restart.in_set(GameplaySystems::Restart),
-                    commands::move_dummies_to_spawn.in_set(GameplaySystems::Respawned),
+                    (commands::move_dummies_to_spawn, sounds::count_lives)
+                        .in_set(GameplaySystems::Respawned),
+                    sounds::play_life_sounds.after(GameplaySystems::Respawned),
                 ),
             );
     }

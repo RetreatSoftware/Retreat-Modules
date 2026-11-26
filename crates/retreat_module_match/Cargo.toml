@@ -13,6 +13,7 @@ doctest = false
 bevy.workspace = true
 retreat_engine_api.workspace = true
 retreat_gameplay_api.workspace = true
+serde.workspace = true
 
 # Module manifest (schema in Retreat-Modules/CLAUDE.md).
 [package.metadata.retreat]
@@ -22,7 +23,7 @@ display_name = "Match"
 summary = "A timed free-for-all match: score, winner and restart, decided by the server."
 plugin = "retreat_module_match::MatchModulePlugin"
 commands = ["match.start", "match.end", "match.restart", "match.set_clock", "assert.match_clock", "assert.match_running", "assert.match_finished", "assert.match_score", "assert.match_winner"]
-requires = ["networking"]
+requires = ["audio", "networking"]
 engine_api = "0.1"
 targets = ["native", "wasm"]
 network_role = "both"

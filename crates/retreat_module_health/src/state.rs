@@ -13,3 +13,11 @@ pub struct SpawnProtection {
 impl NetState for SpawnProtection {
     const ID: &'static str = "health.protection";
 }
+
+/// How often the player came back: what tells one death or respawn from the next.
+#[derive(Component, Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Life(pub u32);
+
+impl NetState for Life {
+    const ID: &'static str = "health.life";
+}

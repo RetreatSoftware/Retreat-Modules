@@ -1,6 +1,7 @@
 //! The module's tuning numbers.
 
 use bevy::prelude::*;
+use retreat_gameplay_api::{SoundCue, validate_cues};
 
 /// A game changes these by inserting the resource before adding the plugin.
 #[derive(Resource, Debug, Clone, PartialEq)]
@@ -15,6 +16,10 @@ pub struct RifleConfig {
     pub reload_seconds: f32,
     /// How far a shot reaches, metres.
     pub range: f32,
+    /// Heard from the shooter at every shot.
+    pub shot_sound: Option<SoundCue>,
+    /// Heard by the reloading player.
+    pub reload_sound: Option<SoundCue>,
 }
 
 impl Default for RifleConfig {
@@ -25,6 +30,8 @@ impl Default for RifleConfig {
             magazine: 30,
             reload_seconds: 1.5,
             range: 100.0,
+            shot_sound: None,
+            reload_sound: None,
         }
     }
 }
@@ -44,6 +51,6 @@ impl RifleConfig {
                 return Err(format!("{field} must be more than 0, got {value}"));
             }
         }
-        Ok(())
+        validate_cues([&self.shot_sound, &self.reload_sound])
     }
 }

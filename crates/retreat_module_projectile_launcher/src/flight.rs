@@ -6,19 +6,70 @@ use crate::state::Rocket;
 use bevy::math::ops;
 use bevy::prelude::*;
 use retreat_engine_api::{
-    EffectTime, NetLocalClient, NetPose, PhysicsShape, RayCast, RemoveNetEntity, RetiredEntity,
-    ShapeCast, VisualEffect, VisualEffects, cast_ray, cast_shape,
+    NetLocalClient, NetPose, PhysicsShape, RayCast, RemoveNetEntity, RetiredEntity, ShapeCast,
+    SoundEvents, VisualEffect, VisualEffects, cast_ray, cast_shape,
 };
 use retreat_gameplay_api::{
-    CharacterSize, DamageCause, DamageRequested, PlayerId, ticks_from_seconds,
+    CharacterSize, DamageCause, DamageRequested, PlayerId, event_time, ticks_from_seconds,
 };
 use retreat_weapon_kit::{character_of, dead_players};
 
 /// An exploded rocket stays this long, so every client hears of the explosion.
 pub const LINGER_TICKS: u32 = 16;
-/// How long the explosion is on screen.
-const BLAST_LOOK_TICKS: u32 = 20;
-const BLAST_COLOR: Color = Color::srgb(1.0, 0.55, 0.15);
+/// A rocket this young starts its launch sound (a client hears of another's rocket a few ticks
+/// late).
+const LAUNCH_SOUND_TICKS: u32 = 16;
+const CORE_COLOR: Color = Color::srgb(1.0, 0.95, 0.6);
+const FIRE_COLOR: Color = Color::srgb(1.0, 0.5, 0.1);
+const EMBER_COLOR: Color = Color::srgb(0.9, 0.2, 0.05);
+/// Where the puffs around an explosion are, in blast radii.
+const PUFFS: [Vec3; 6] = [
+    Vec3::new(0.55, 0.15, 0.1),
+    Vec3::new(-0.5, 0.25, -0.2),
+    Vec3::new(0.1, 0.6, -0.15),
+    Vec3::new(-0.15, 0.2, 0.55),
+    Vec3::new(0.2, 0.1, -0.55),
+    Vec3::new(-0.3, 0.45, 0.25),
+];
+
+/// One glowing sphere of an explosion.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BlastPart {
+    /// The end of the effect's id.
+    pub name: String,
+    /// From the center of the explosion.
+    pub offset: Vec3,
+    pub radius: f32,
+    pub color: Color,
+    pub ticks: u32,
+}
+
+/// What an explosion of `radius` looks like: a short bright core, a ball of fire and puffs around
+/// it that stay a little longer. The puffs end inside the blast radius.
+pub fn blast_look(radius: f32) -> Vec<BlastPart> {
+    let part = |name: String, offset, size: f32, color, ticks| BlastPart {
+        name,
+        offset,
+        radius: radius * size,
+        color,
+        ticks,
+    };
+    let mut parts = vec![
+        part("core".to_string(), Vec3::ZERO, 0.3, CORE_COLOR, 8),
+        part("fire".to_string(), Vec3::ZERO, 0.5, FIRE_COLOR, 16),
+    ];
+    parts.extend(PUFFS.iter().enumerate().map(|(puff, direction)| {
+        let ticks = 18 + 3 * (puff as u32 % 3);
+        part(
+            format!("puff{puff}"),
+            *direction * radius,
+            0.22,
+            EMBER_COLOR,
+            ticks,
+        )
+    }));
+    parts
+}
 
 /// How far `point` is from the capsule of a character whose middle is at `center`; 0 inside it.
 pub fn distance_to_body(point: Vec3, center: Vec3, size: CharacterSize) -> f32 {
@@ -62,6 +113,13 @@ pub(crate) fn fly_rockets(world: &mut World) {
             }
         } else {
             rocket.age += 1;
+            if rocket.age <= LAUNCH_SOUND_TICKS
+                && let Some(cue) = &config.launch_sound
+            {
+                let time = event_time(*world.resource::<NetLocalClient>(), rocket.owner);
+                let event = cue.event(format!("{name}/launch"), Some(pose.translation), time);
+                world.resource_mut::<SoundEvents>().play(event);
+            }
             let step = config.speed * timestep.as_secs_f32();
             let mut exclude = dead_players(world);
             exclude.extend(character_of(world, rocket.owner));
@@ -89,25 +147,29 @@ pub(crate) fn fly_rockets(world: &mut World) {
     }
 }
 
-/// The look everywhere, the damage where this machine decides it.
+/// The look and sound everywhere, the damage where this machine decides it.
 fn explode(world: &mut World, name: &str, owner: PlayerId, at: Vec3, direct: Option<Entity>) {
-    let local = world.resource::<NetLocalClient>().0;
-    let radius = world.resource::<LauncherConfig>().blast_radius;
+    let client = *world.resource::<NetLocalClient>();
+    let local = client.0;
     // Another player's rocket is drawn in the past, so its explosion waits for the view too.
-    let time = if local.is_some_and(|local| local != owner.0) {
-        EffectTime::RemoteView
-    } else {
-        EffectTime::Present
-    };
-    world.resource_mut::<VisualEffects>().play(VisualEffect {
-        id: format!("{name}/boom"),
-        position: at,
-        radius,
-        color: BLAST_COLOR,
-        glow: 2.0,
-        ticks: BLAST_LOOK_TICKS,
-        time,
-    });
+    let time = event_time(client, owner);
+    let config = world.resource::<LauncherConfig>();
+    let (radius, cue) = (config.blast_radius, config.explosion_sound.clone());
+    for part in blast_look(radius) {
+        world.resource_mut::<VisualEffects>().play(VisualEffect {
+            id: format!("{name}/boom/{}", part.name),
+            position: at + part.offset,
+            radius: part.radius,
+            color: part.color,
+            glow: 2.5,
+            ticks: part.ticks,
+            time,
+        });
+    }
+    if let Some(cue) = cue {
+        let event = cue.event(format!("{name}/boom"), Some(at), time);
+        world.resource_mut::<SoundEvents>().play(event);
+    }
     if local.is_none() {
         for request in blast_requests(world, owner, at, direct) {
             world.write_message(request);

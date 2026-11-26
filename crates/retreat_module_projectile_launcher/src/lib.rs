@@ -32,7 +32,7 @@ use retreat_engine_api::{
 use retreat_gameplay_api::{GameplaySystems, add_gameplay_contract};
 
 pub use config::LauncherConfig;
-pub use flight::{LINGER_TICKS, blast_damage, distance_to_body};
+pub use flight::{BlastPart, LINGER_TICKS, blast_damage, blast_look, distance_to_body};
 pub use state::{LauncherState, Rocket};
 
 /// Adds the launcher. Insert a [`LauncherConfig`] first to change the numbers.
@@ -93,6 +93,7 @@ impl Plugin for ProjectileLauncherModulePlugin {
                         .in_set(GameplaySystems::Act),
                     state::count_hits.in_set(GameplaySystems::Match),
                     state::remove_rockets.in_set(GameplaySystems::Restart),
+                    state::play_own_reload.after(GameplaySystems::Respawned),
                     state::refill_respawned.in_set(GameplaySystems::Respawned),
                 ),
             )
