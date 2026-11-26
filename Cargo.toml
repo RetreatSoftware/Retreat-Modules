@@ -9,7 +9,7 @@
 
 [workspace]
 resolver = "3"
-members = ["crates/retreat_module_spawner", "crates/retreat_module_orbit_camera", "crates/retreat_module_sfx", "crates/retreat_module_fox_walk", "crates/retreat_module_highscore", "crates/retreat_module_menu", "crates/retreat_module_players", "crates/retreat_module_arena", "crates/retreat_module_health", "crates/retreat_module_match", "crates/retreat_module_player_spawn", "crates/retreat_module_character_movement", "crates/retreat_module_third_person_camera", "crates/retreat_module_character_visuals", "crates/retreat_module_rifle", "crates/retreat_module_combat_hud", "crates/retreat_module_projectile_launcher", "crates/retreat_module_inventory", "crates/retreat_gameplay_api", "crates/retreat_weapon_kit", "crates/retreat_manifest", "crates/retreat_resolver"]
+members = ["crates/retreat_module_spawner", "crates/retreat_module_orbit_camera", "crates/retreat_module_sfx", "crates/retreat_module_fox_walk", "crates/retreat_module_highscore", "crates/retreat_module_menu", "crates/retreat_module_players", "crates/retreat_module_arena", "crates/retreat_module_health", "crates/retreat_module_match", "crates/retreat_module_player_spawn", "crates/retreat_module_character_movement", "crates/retreat_module_third_person_camera", "crates/retreat_module_character_visuals", "crates/retreat_module_rifle", "crates/retreat_module_combat_hud", "crates/retreat_module_projectile_launcher", "crates/retreat_module_inventory", "crates/retreat_module_loot", "crates/retreat_gameplay_api", "crates/retreat_weapon_kit", "crates/retreat_manifest", "crates/retreat_resolver"]
 
 [workspace.package]
 version = "0.1.0"

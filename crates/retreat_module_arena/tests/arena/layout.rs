@@ -127,3 +127,16 @@ fn a_broken_map_lists_what_to_fix() {
     assert!(problems.contains("at least 8"), "{problems}");
     assert!(problems.contains("overlaps an earlier one"), "{problems}");
 }
+
+#[test]
+fn every_pickup_spot_is_reachable_ground_and_a_bad_one_is_named() {
+    let mut map = graybox_map();
+    assert!(validate_map(&map).is_empty());
+    assert!(map.pickup_spots.iter().any(|spot| spot.kind == "launcher"));
+    map.pickup_spots[0].feet.y = 5.0;
+    let problems = validate_map(&map);
+    assert!(
+        problems.len() == 1 && problems[0].contains(&map.pickup_spots[0].name),
+        "{problems:?}"
+    );
+}

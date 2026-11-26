@@ -1,7 +1,7 @@
 //! Arena module: maps as data, built from fixed physics boxes.
 //!
 //! - `arena.load <map>` spawns every piece of the map as a fixed `PhysicsBody` named
-//!   `arena/<piece>` and fills the contract resource `SpawnPoints`. One map per session: a second
+//!   `arena/<piece>` and fills the contract resources `SpawnPoints` and `PickupSpots`. One map per session: a second
 //!   load is an error (removed bodies keep their names for the engine's rollback window, so
 //!   switching maps is not built).
 //! - Every machine (server and clients) loads the map itself; fixed bodies are not replicated.

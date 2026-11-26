@@ -7,7 +7,7 @@ use crate::map::{ArenaMap, MapPiece, PieceKind};
 use crate::source_units::source_cm_to_retreat;
 use bevy::math::ops;
 use bevy::prelude::*;
-use retreat_gameplay_api::SpawnPoint;
+use retreat_gameplay_api::{PickupSpot, SpawnPoint};
 
 /// `(name, kind, corner, opposite corner)` in source centimetres, Z up.
 type SourceBox = (&'static str, PieceKind, [f32; 3], [f32; 3]);
@@ -60,6 +60,22 @@ const SPAWN_XZ: &[(f32, f32)] = &[
     (-24.0, 24.0),
 ];
 
+/// Pickup spots `(name, kind, [x, feet y, z])` in metres: health and ammunition around the floor,
+/// rockets east and west, the launcher on the high platform.
+const PICKUP_SPOTS: &[(&str, &str, [f32; 3])] = &[
+    ("health_west", "health", [-20.0, 0.0, -6.0]),
+    ("health_east", "health", [20.0, 0.0, 6.0]),
+    ("health_north", "health", [10.0, 0.0, -10.0]),
+    ("health_south", "health", [-12.0, 0.0, 12.0]),
+    ("ammo_southeast", "ammo", [14.0, 0.0, 18.0]),
+    ("ammo_northwest", "ammo", [-14.0, 0.0, -14.0]),
+    ("ammo_northeast", "ammo", [20.0, 0.0, -20.0]),
+    ("ammo_southwest", "ammo", [-22.0, 0.0, 18.0]),
+    ("rockets_east", "rockets", [22.0, 0.0, -4.0]),
+    ("rockets_west", "rockets", [-22.0, 0.0, 4.0]),
+    ("launcher_platform", "launcher", [-3.5, 2.0, -21.5]),
+];
+
 pub fn graybox_map() -> ArenaMap {
     let mut pieces: Vec<MapPiece> = BOXES
         .iter()
@@ -88,6 +104,14 @@ pub fn graybox_map() -> ArenaMap {
         half_extent: 30.0,
         pieces,
         spawn_points,
+        pickup_spots: PICKUP_SPOTS
+            .iter()
+            .map(|&(name, kind, feet)| PickupSpot {
+                name: name.to_string(),
+                kind: kind.to_string(),
+                feet: feet.into(),
+            })
+            .collect(),
     }
 }
 

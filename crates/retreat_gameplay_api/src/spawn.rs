@@ -14,3 +14,18 @@ pub struct SpawnPoint {
 /// The loaded map's spawn points, in a fixed order. Empty until a map is loaded.
 #[derive(Resource, Debug, Clone, Default, PartialEq)]
 pub struct SpawnPoints(pub Vec<SpawnPoint>);
+
+/// A place of the map where something to pick up appears.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PickupSpot {
+    /// Unique in the map; lowercase, digits and `_`.
+    pub name: String,
+    /// What belongs here (`health`, `weapon`): the game says what each kind holds.
+    pub kind: String,
+    /// The ground under it, in metres, Y up.
+    pub feet: Vec3,
+}
+
+/// The loaded map's pickup spots, in a fixed order. Empty until a map is loaded.
+#[derive(Resource, Debug, Clone, Default, PartialEq)]
+pub struct PickupSpots(pub Vec<PickupSpot>);

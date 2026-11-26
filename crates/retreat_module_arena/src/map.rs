@@ -1,7 +1,7 @@
 //! What a map is, and the pure rules a map must satisfy.
 
 use bevy::prelude::*;
-use retreat_gameplay_api::{CharacterSize, MAX_PLAYERS, SpawnPoint};
+use retreat_gameplay_api::{CharacterSize, MAX_PLAYERS, PickupSpot, SpawnPoint};
 
 /// Surfaces closer than this are touching, not overlapping (metres).
 const TOUCH_TOLERANCE: f32 = 1.0e-3;
@@ -45,6 +45,8 @@ pub struct ArenaMap {
     pub pieces: Vec<MapPiece>,
     /// At least [`MAX_PLAYERS`], so everyone can start somewhere different.
     pub spawn_points: Vec<SpawnPoint>,
+    /// Where things to pick up may appear.
+    pub pickup_spots: Vec<PickupSpot>,
 }
 
 /// Why a character cannot appear at `spawn`, or `None` when it can: its bounding box (a little
@@ -105,6 +107,28 @@ pub fn validate_map(map: &ArenaMap) -> Vec<String> {
             .any(|other| other.feet.distance(spawn.feet) < 2.0 * CharacterSize::default().radius);
         if too_close {
             problems.push(format!("spawn point {index} overlaps an earlier one"));
+        }
+    }
+    for (index, spot) in map.pickup_spots.iter().enumerate() {
+        let name = &spot.name;
+        if map.pickup_spots[..index]
+            .iter()
+            .any(|other| other.name == *name)
+        {
+            problems.push(format!("pickup spot name `{name}` is used twice"));
+        }
+        if name.is_empty() || name.contains(char::is_whitespace) || spot.kind.is_empty() {
+            problems.push(format!(
+                "pickup spot `{name}` needs a one word name and a kind"
+            ));
+        }
+        // A player must be able to stand where it picks it up.
+        let standing = SpawnPoint {
+            feet: spot.feet,
+            yaw: 0.0,
+        };
+        if let Some(problem) = spawn_point_problem(map, &standing) {
+            problems.push(format!("pickup spot `{name}` at {} {problem}", spot.feet));
         }
     }
     problems

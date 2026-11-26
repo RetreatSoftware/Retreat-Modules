@@ -16,6 +16,7 @@
 //! |---|---|---|
 //! | [`PlayerId`] (component) | the module that spawns players | everyone |
 //! | [`SpawnPoints`] (resource) | the map module | spawning and respawn |
+//! | [`PickupSpots`] (resource) | the map module | loot |
 //! | [`SoloPlayer`] (resource, this machine only) | the module that spawns players | input, camera |
 //! | [`LookAngles`] (component) | spawning, then movement | camera, weapons, visuals |
 //! | [`Health`] (component) | health | HUD, weapons, visuals |
@@ -77,7 +78,7 @@ pub use roster::{PlayerRoster, RosterEntry};
 pub use schedule::GameplaySystems;
 pub use score::{ScoreEntry, Scoreboard};
 pub use sound::{SoundCue, event_time, validate_cues};
-pub use spawn::{SpawnPoint, SpawnPoints};
+pub use spawn::{PickupSpot, PickupSpots, SpawnPoint, SpawnPoints};
 pub use spawn_choice::choose_spawn_point;
 pub use time::ticks_from_seconds;
 pub use weapon::{WeaponKind, WeaponStatus, Weapons};
@@ -126,6 +127,7 @@ pub fn add_gameplay_contract(app: &mut App) {
         .add_message::<MatchEnded>()
         .add_message::<MatchRestarted>()
         .init_resource::<SpawnPoints>()
+        .init_resource::<PickupSpots>()
         .configure_sets(
             FixedUpdate,
             (

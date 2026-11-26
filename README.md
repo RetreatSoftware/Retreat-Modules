@@ -26,6 +26,7 @@ Modules are independent and combinable, and are designed to integrate with Retre
 | `retreat_module_rifle` | `rifle.fire`, `rifle.reload` | Automatic rifle with server-decided, lag-compensated hits. |
 | `retreat_module_projectile_launcher` | `launcher.fire`, `launcher.reload` | Predicted rockets with server-decided blast damage. |
 | `retreat_module_inventory` | `inventory.grant`, `inventory.use` | Item stacks per player, reserve ammunition, health kits (key E). |
+| `retreat_module_loot` | `assert.loot_available`, `assert.loot_drops` | Map pickups that come back, and drops from the dead. |
 | `retreat_module_combat_hud` | `hud.scoreboard` | Crosshair, health, weapons and ammo, hit marker, respawn countdown, match clock, scoreboard, winner, kill feed. |
 
 Shared gameplay types live in the contract crate `retreat_gameplay_api`; what weapon modules do the

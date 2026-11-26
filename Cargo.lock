@@ -4848,6 +4848,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "retreat_module_loot"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "retreat_engine_api",
+ "retreat_gameplay_api",
+ "serde",
+]
+
+[[package]]
 name = "retreat_module_match"
 version = "0.1.0"
 dependencies = [

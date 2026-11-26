@@ -1,0 +1,29 @@
+[package]
+name = "retreat_module_loot"
+description = "Retreat module: map pickups that come back, and what the dead drop."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lib]
+test = false
+doctest = false
+
+[dependencies]
+bevy.workspace = true
+retreat_engine_api.workspace = true
+retreat_gameplay_api.workspace = true
+serde.workspace = true
+
+# Module manifest (schema in Retreat-Modules/CLAUDE.md).
+[package.metadata.retreat]
+manifest_version = 1
+id = "loot"
+display_name = "Loot"
+summary = "Pickups at the map's spots that come back after a delay, and drops from the dead; walking over one takes it."
+plugin = "retreat_module_loot::LootModulePlugin"
+commands = ["assert.loot_available", "assert.loot_drops"]
+requires = ["networking"]
+engine_api = "0.1"
+targets = ["native", "wasm"]
+network_role = "both"
