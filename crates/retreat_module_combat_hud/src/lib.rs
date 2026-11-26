@@ -8,35 +8,36 @@
 //! | `hud_hit` | for a moment after any weapon's `hits_landed` rises |
 //! | `hud_health` | the player has `Health` |
 //! | `hud_respawn` | the player has a `RespawnTimer` |
+//! | `hud_match_clock` | there is a match: time left, or the countdown to the next one |
+//! | `hud_match_banner` | the match is finished: the winner or a draw |
+//! | `hud_match_score_head`, `hud_match_score_row<n>` | the match is finished, or `hud_scoreboard` (Tab) is held or `hud.scoreboard on`; one row per player, best first |
+//! | `hud_kill<n>` | for a while after a death appears in the `KillLog` |
 //!
-//! What is shown is the pure [`hud_view`]; where it goes is the engine's HUD layout. A server has
-//! no player and shows nothing. Text can be checked with the engine's `assert.ui_text`, visibility
-//! with `assert.hud_shown`. Numbers: [`CombatHudConfig`].
+//! While the scoreboard is shown, the middle of the screen (crosshair, hit marker, respawn) is
+//! empty. What is shown is the pure [`hud_view`] and [`match_view`]; where it goes is the engine's
+//! HUD layout. A server has no player and shows nothing. Names come from the contract's
+//! `PlayerNames`. Visibility is checked with `assert.hud_shown`, text with `assert.hud_text` (runs
+//! of spaces count as one; the engine's `assert.ui_text` cannot compare columns). Numbers:
+//! [`CombatHudConfig`].
 
 mod commands;
 mod config;
+mod match_view;
 mod show;
 mod view;
+mod widgets;
 
 use bevy::prelude::*;
-use retreat_engine_api::{AppCommandExt, AppHudExt, HudAnchor, HudKind, HudWidget};
-use retreat_gameplay_api::{GameplaySystems, WeaponKind, add_gameplay_contract};
+use retreat_engine_api::{AppCommandExt, AppInputExt, HELD_ONLY, InputAction, InputKey};
+use retreat_gameplay_api::{GameplaySystems, add_gameplay_contract};
 
 pub use config::CombatHudConfig;
+pub use match_view::{KillFeed, MatchInput, MatchView, kill_line, match_view};
 pub use view::{HudInput, HudView, hud_view};
-
-pub const CROSSHAIR_WIDGET: &str = "hud_crosshair";
-pub const HIT_WIDGET: &str = "hud_hit";
-pub const HEALTH_WIDGET: &str = "hud_health";
-pub const RESPAWN_WIDGET: &str = "hud_respawn";
-
-/// The ammo line of one weapon.
-pub fn ammo_widget(kind: WeaponKind) -> &'static str {
-    match kind {
-        WeaponKind::Rifle => "hud_ammo_rifle",
-        WeaponKind::Launcher => "hud_ammo_launcher",
-    }
-}
+pub use widgets::{
+    CLOCK_WIDGET, CROSSHAIR_WIDGET, HEALTH_WIDGET, HIT_WIDGET, HudLines, RESPAWN_WIDGET,
+    RESULT_WIDGET, SCORE_HEAD_WIDGET, ammo_widget,
+};
 
 /// Adds the HUD. Insert a [`CombatHudConfig`] first to change the numbers.
 pub struct CombatHudModulePlugin;
@@ -49,40 +50,34 @@ impl Plugin for CombatHudModulePlugin {
             panic!("invalid CombatHudConfig: {problem}");
         }
         let config = app.world().resource::<CombatHudConfig>().clone();
-        let text = |id, anchor, font_size| HudWidget {
-            id,
-            anchor,
-            kind: HudKind::Text { font_size },
-            visible: false,
-        };
-        app.register_hud_widget(HudWidget {
-            id: CROSSHAIR_WIDGET,
-            anchor: HudAnchor::Center,
-            kind: HudKind::Crosshair {
-                size: config.crosshair_size,
-            },
-            visible: false,
-        })
-        .register_hud_widget(text(HIT_WIDGET, HudAnchor::Center, config.font_size))
-        .register_hud_widget(text(HEALTH_WIDGET, HudAnchor::BottomLeft, config.font_size))
-        .register_hud_widget(text(RESPAWN_WIDGET, HudAnchor::Center, config.font_size))
-        .init_resource::<show::HitMarker>()
-        .register_command(
-            "assert.hud_shown",
-            "assert.hud_shown <widget> <true|false>",
-            commands::assert_shown_command,
-        )
-        .add_systems(
-            FixedUpdate,
-            show::time_hit_marker.after(GameplaySystems::Respawned),
-        )
-        .add_systems(Update, show::show_hud);
-        for kind in WeaponKind::ALL {
-            app.register_hud_widget(text(
-                ammo_widget(kind),
-                HudAnchor::BottomRight,
-                config.font_size,
-            ));
-        }
+        widgets::register_widgets(app, &config);
+        app.init_resource::<show::HitMarker>()
+            .init_resource::<show::ShownKills>()
+            .init_resource::<show::ScoreboardSwitch>()
+            .register_command(
+                "hud.scoreboard",
+                "hud.scoreboard <on|off>",
+                commands::scoreboard_command,
+            )
+            .register_command(
+                "assert.hud_shown",
+                "assert.hud_shown <widget> <true|false>",
+                commands::assert_shown_command,
+            )
+            .register_command(
+                "assert.hud_text",
+                "assert.hud_text <widget> <words...>",
+                commands::assert_text_command,
+            )
+            .register_action(InputAction {
+                id: "hud_scoreboard",
+                command_line: HELD_ONLY,
+                default_keys: &[InputKey::Tab],
+            })
+            .add_systems(
+                FixedUpdate,
+                (show::time_hit_marker, show::time_kill_feed).after(GameplaySystems::Respawned),
+            )
+            .add_systems(Update, show::show_hud);
     }
 }

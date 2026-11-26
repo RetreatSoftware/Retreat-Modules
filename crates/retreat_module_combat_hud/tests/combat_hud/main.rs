@@ -31,6 +31,7 @@ fn input() -> HudInput {
         weapons: Some(carrying([weapon(12)])),
         respawn: None,
         hit: false,
+        covered: false,
         timestep: Duration::from_secs_f64(1.0 / 64.0),
     }
 }
@@ -162,4 +163,171 @@ fn the_widgets_follow_the_local_player_and_the_hit_marker_ends() {
 fn hit(app: &mut App, player: Entity, hits: u32) {
     let mut weapons = app.world_mut().get_mut::<Weapons>(player).unwrap();
     weapons.of_mut(WeaponKind::Rifle).unwrap().hits_landed = hits;
+}
+
+const TICK: Duration = Duration::from_nanos(15_625_000);
+
+fn names() -> PlayerNames {
+    PlayerNames(vec!["Red".to_string(), "Blue".to_string()])
+}
+
+fn board() -> Scoreboard {
+    let mut board = Scoreboard::default();
+    board.entry_mut(PlayerId(0)).deaths = 2;
+    let blue = board.entry_mut(PlayerId(1));
+    (blue.points, blue.kills) = (2, 2);
+    board
+}
+
+fn match_input(phase: MatchPhase) -> MatchInput {
+    MatchInput {
+        state: Some(MatchState { phase }),
+        board: Some(board()),
+        own: Some(PlayerId(0)),
+        scoreboard_wanted: false,
+        timestep: TICK,
+    }
+}
+
+fn words(line: &str) -> String {
+    line.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+#[test]
+fn a_running_match_shows_its_clock_and_the_scoreboard_only_when_asked() {
+    let running = match_input(MatchPhase::Running {
+        ticks_left: 64 * 125 - 1,
+    });
+    let view = match_view(&running, &names());
+    assert_eq!(view.clock.as_deref(), Some("2:05"));
+    assert!(view.result.is_none() && view.score_head.is_none() && view.score_rows.is_empty());
+    let asked = match_view(
+        &MatchInput {
+            scoreboard_wanted: true,
+            ..running
+        },
+        &names(),
+    );
+    assert_eq!(
+        words(asked.score_head.as_deref().unwrap()),
+        "Player Pts K D"
+    );
+    let rows: Vec<String> = asked.score_rows.iter().map(|row| words(row)).collect();
+    assert_eq!(rows, ["Blue 2 2 0", "> Red 0 0 2"]);
+    let widths: Vec<usize> = asked
+        .score_rows
+        .iter()
+        .chain(&asked.score_head)
+        .map(String::len)
+        .collect();
+    assert!(widths.iter().all(|width| *width == widths[0]), "{widths:?}");
+}
+
+#[test]
+fn a_finished_match_shows_the_winner_the_scores_and_the_countdown() {
+    let view = match_view(
+        &match_input(MatchPhase::Finished {
+            winner: Some(PlayerId(1)),
+            ticks_until_restart: 65,
+        }),
+        &names(),
+    );
+    assert_eq!(view.result.as_deref(), Some("Blue wins"));
+    assert_eq!(view.clock.as_deref(), Some("Next match in 2"));
+    assert_eq!(view.score_rows.len(), 2);
+    let draw = match_view(
+        &match_input(MatchPhase::Finished {
+            winner: None,
+            ticks_until_restart: 1,
+        }),
+        &names(),
+    );
+    assert_eq!(draw.result.as_deref(), Some("Draw"));
+    assert_eq!(
+        match_view(&MatchInput::default(), &names()),
+        MatchView::default()
+    );
+}
+
+#[test]
+fn the_scoreboard_clears_the_middle_of_the_screen() {
+    let mut health = Health::full(100);
+    health.apply_damage(100);
+    let view = hud_view(HudInput {
+        health: Some(health),
+        respawn: Some(RespawnTimer { ticks_left: 10 }),
+        hit: true,
+        covered: true,
+        ..input()
+    });
+    assert!(!view.crosshair && !view.hit && view.respawn.is_none());
+    assert!(view.health.is_some());
+}
+
+#[test]
+fn the_kill_feed_shows_new_deaths_for_a_while_and_skips_old_ones() {
+    let mut log = KillLog::default();
+    log.push(PlayerId(0), Some(PlayerId(1)));
+    let mut feed = KillFeed::default();
+    // Joining late: what happened before is not news.
+    feed.tick(Some(&log), 3);
+    assert_eq!(feed.latest(4).count(), 0);
+    log.push(PlayerId(1), Some(PlayerId(1)));
+    log.push(PlayerId(0), None);
+    feed.tick(Some(&log), 3);
+    let lines = |feed: &KillFeed, most| -> Vec<String> {
+        feed.latest(most)
+            .map(|entry| kill_line(entry, &names()))
+            .collect()
+    };
+    assert_eq!(lines(&feed, 4), ["Blue blew up", "Red fell"]);
+    assert_eq!(lines(&feed, 1), ["Red fell"]);
+    feed.tick(Some(&log), 3);
+    feed.tick(Some(&log), 3);
+    assert_eq!(lines(&feed, 4).len(), 2);
+    feed.tick(Some(&log), 3);
+    assert!(lines(&feed, 4).is_empty());
+    log.push(PlayerId(0), Some(PlayerId(1)));
+    feed.tick(Some(&log), 3);
+    assert_eq!(lines(&feed, 4), ["Blue killed Red"]);
+    feed.tick(None, 3);
+    assert!(lines(&feed, 4).is_empty());
+}
+
+#[test]
+fn the_match_widgets_follow_the_match_and_the_scoreboard_switch() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins)
+        .init_resource::<CommandRegistry>()
+        .init_resource::<InputActions>()
+        .add_plugins(CombatHudModulePlugin);
+    app.world_mut()
+        .insert_resource(SoloPlayer(Some(PlayerId(0))));
+    app.world_mut().spawn((
+        MatchState {
+            phase: MatchPhase::Running { ticks_left: 640 },
+        },
+        board(),
+        KillLog::default(),
+    ));
+    let line = |app: &mut App, line: &str| {
+        run_command_line(app.world_mut(), line).unwrap_or_else(|error| panic!("{error}"));
+    };
+    app.world_mut().run_schedule(Update);
+    line(&mut app, "assert.hud_text hud_match_clock 0:10");
+    line(&mut app, "assert.hud_shown hud_match_score_head false");
+    line(&mut app, "hud.scoreboard on");
+    app.world_mut().run_schedule(Update);
+    line(
+        &mut app,
+        "assert.hud_text hud_match_score_row0 Player 1 2 2 0",
+    );
+    line(
+        &mut app,
+        "assert.hud_text hud_match_score_row1 > Player 0 0 0 2",
+    );
+    line(&mut app, "assert.hud_shown hud_match_score_row2 false");
+    line(&mut app, "hud.scoreboard off");
+    app.world_mut().run_schedule(Update);
+    line(&mut app, "assert.hud_shown hud_match_score_row0 false");
 }

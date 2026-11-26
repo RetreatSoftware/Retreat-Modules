@@ -6,7 +6,8 @@ use crate::rules::scoreboard_for;
 use bevy::prelude::*;
 use retreat_engine_api::{CommandArgs, CommandError, CommandOutcome, CommandResult, RetiredEntity};
 use retreat_gameplay_api::{
-    MatchEnded, MatchPhase, MatchRestarted, MatchState, PlayerId, Scoreboard,
+    KillLog, MatchEnded, MatchPhase, MatchRestarted, MatchState, PlayerId, Scoreboard,
+    ticks_from_seconds,
 };
 
 /// `match.start`: creates the match, or restarts a finished one.
@@ -56,6 +57,49 @@ pub(crate) fn restart_command(world: &mut World, args: &CommandArgs) -> CommandR
     args.expect_count(0)?;
     require_match(world, args)?;
     restart(world);
+    Ok(CommandOutcome::Continue)
+}
+
+/// `match.set_clock <seconds>`: how long the current phase still lasts (the match, or the pause
+/// on its result).
+pub(crate) fn set_clock_command(world: &mut World, args: &CommandArgs) -> CommandResult {
+    args.expect_count(1)?;
+    let seconds: f32 = args.parse(0, "seconds")?;
+    if !(seconds.is_finite() && seconds > 0.0) {
+        return Err(args.failure("the seconds must be more than 0"));
+    }
+    let (entity, mut state, _) = require_match(world, args)?;
+    let ticks = ticks_from_seconds(seconds, world.resource::<Time<Fixed>>().timestep()).max(1);
+    match &mut state.phase {
+        MatchPhase::Running { ticks_left } => *ticks_left = ticks,
+        MatchPhase::Finished {
+            ticks_until_restart,
+            ..
+        } => *ticks_until_restart = ticks,
+    }
+    world.entity_mut(entity).insert(state);
+    Ok(CommandOutcome::Continue)
+}
+
+/// `assert.match_clock <least> <most>`: the seconds left in the current phase.
+pub(crate) fn assert_clock_command(world: &mut World, args: &CommandArgs) -> CommandResult {
+    args.expect_count(2)?;
+    let least: f64 = args.parse(0, "least seconds")?;
+    let most: f64 = args.parse(1, "most seconds")?;
+    let (_, state, _) = require_match(world, args)?;
+    let ticks = match state.phase {
+        MatchPhase::Running { ticks_left } => ticks_left,
+        MatchPhase::Finished {
+            ticks_until_restart,
+            ..
+        } => ticks_until_restart,
+    };
+    let left = world.resource::<Time<Fixed>>().timestep().as_secs_f64() * f64::from(ticks);
+    if !(least..=most).contains(&left) {
+        return Err(args.failure(format!(
+            "{left} seconds are left, expected {least} to {most}"
+        )));
+    }
     Ok(CommandOutcome::Continue)
 }
 
@@ -123,6 +167,9 @@ fn restart(world: &mut World) {
     world
         .entity_mut(entity)
         .insert((state, scoreboard_for(&present)));
+    if let Some(mut log) = world.get_mut::<KillLog>(entity) {
+        log.clear();
+    }
     world.write_message(MatchRestarted);
 }
 

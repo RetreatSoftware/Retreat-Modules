@@ -1,8 +1,8 @@
-# combat_hud (step 3 part built)
+# combat_hud (built)
 
-Built: crosshair, health, every carried weapon with its ammo, hit marker, respawn countdown
-(`crates/retreat_module_combat_hud/src/lib.rs`; numbers `CombatHudConfig::default()`). Command:
-`assert.hud_shown`; text with the engine's `assert.ui_text`.
+Rules and widgets: `crates/retreat_module_combat_hud/src/lib.rs`; numbers
+`CombatHudConfig::default()`. Commands: `hud.scoreboard <on|off>`, `assert.hud_shown`,
+`assert.hud_text`. Action: `hud_scoreboard` (Tab, held).
 
-Still to do (plan step 5): match timer, scoreboard (`hud.scoreboard`, Tab), result, kill feed, damage
-flash. Each element is hidden when its data is absent.
+Not built: damage flash, sounds. Players are told apart by name (the contract's `PlayerNames`, set by
+the game): the engine's HUD draws white text only, with no colors or background panels.

@@ -11,6 +11,8 @@ pub struct HudInput {
     pub respawn: Option<RespawnTimer>,
     /// The hit marker is running.
     pub hit: bool,
+    /// The scoreboard covers the middle of the screen: nothing else is shown there.
+    pub covered: bool,
     /// Length of one tick.
     pub timestep: Duration,
 }
@@ -34,18 +36,18 @@ pub fn hud_view(input: HudInput) -> HudView {
         .filter(|weapons| weapons.iter().next().is_some());
     let usable = armed.filter(|_| alive);
     HudView {
-        crosshair: usable.is_some(),
+        crosshair: usable.is_some() && !input.covered,
         ammo: usable.map_or_else(Vec::new, |weapons| {
             weapons
                 .iter()
                 .map(|weapon| (weapon.kind, weapon_text(weapon)))
                 .collect()
         }),
-        hit: input.hit && armed.is_some(),
+        hit: input.hit && armed.is_some() && !input.covered,
         health: input
             .health
             .map(|health| format!("Health {}", health.current())),
-        respawn: input.respawn.map(|timer| {
+        respawn: input.respawn.filter(|_| !input.covered).map(|timer| {
             // Whole seconds, rounded up: "1" until the respawn happens.
             let seconds = (input.timestep.as_secs_f64() * f64::from(timer.ticks_left))
                 .ceil()

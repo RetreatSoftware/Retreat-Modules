@@ -10,5 +10,7 @@ Rockets with blast damage. Predicted on the shooter's client, decided by the ser
 - A second fire button instead of a weapon switch (decided 2026-11-26): no shared "selected weapon"
   state and no third module; the HUD lists both weapons.
 
-Not built: sounds, knockback, removing rockets on a match restart. No lag compensation: rockets hit
+A match restart removes the rockets in flight.
+
+Not built: sounds, knockback. No lag compensation: rockets hit
 bodies where they are, so shooters lead moving targets.

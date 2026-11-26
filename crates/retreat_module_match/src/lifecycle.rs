@@ -5,8 +5,8 @@ use crate::rules::{score_death, scoreboard_for};
 use bevy::prelude::*;
 use retreat_engine_api::RetiredEntity;
 use retreat_gameplay_api::{
-    MATCH_ENTITY_NAME, MatchEnded, MatchPhase, MatchRestarted, MatchState, PlayerDied, PlayerId,
-    Scoreboard, ticks_from_seconds,
+    KillLog, MATCH_ENTITY_NAME, MatchEnded, MatchPhase, MatchRestarted, MatchState, PlayerDied,
+    PlayerId, Scoreboard, ticks_from_seconds,
 };
 
 /// A fresh running phase.
@@ -33,11 +33,12 @@ pub(crate) fn new_match(
     players: &[PlayerId],
     config: &MatchConfig,
     time: &Time<Fixed>,
-) -> (Name, MatchState, Scoreboard) {
+) -> (Name, MatchState, Scoreboard, KillLog) {
     (
         Name::new(MATCH_ENTITY_NAME),
         running(config, time),
         scoreboard_for(players),
+        KillLog::default(),
     )
 }
 
@@ -56,7 +57,7 @@ pub(crate) fn start_with_first_player(
 
 pub(crate) fn score_and_advance(
     mut deaths: MessageReader<PlayerDied>,
-    mut matches: Query<(&mut MatchState, &mut Scoreboard), Without<RetiredEntity>>,
+    mut matches: Query<(&mut MatchState, &mut Scoreboard, &mut KillLog), Without<RetiredEntity>>,
     players: Query<&PlayerId, Without<RetiredEntity>>,
     config: Res<MatchConfig>,
     time: Res<Time<Fixed>>,
@@ -67,7 +68,7 @@ pub(crate) fn score_and_advance(
     let deaths: Vec<PlayerDied> = deaths.read().copied().collect();
     let mut present: Vec<PlayerId> = players.iter().copied().collect();
     present.sort();
-    for (mut state, mut board) in &mut matches {
+    for (mut state, mut board, mut log) in &mut matches {
         // One line per present player.
         let mut next = scoreboard_for(&present);
         for &player in &present {
@@ -79,6 +80,7 @@ pub(crate) fn score_and_advance(
             MatchPhase::Running { ticks_left } => {
                 for &death in &deaths {
                     score_death(&mut next, death, &config);
+                    log.push(death.victim, death.killer);
                 }
                 if ticks_left > 1 {
                     state.phase = MatchPhase::Running {
@@ -103,6 +105,7 @@ pub(crate) fn score_and_advance(
                 } else {
                     *state = running(&config, &time);
                     next = scoreboard_for(&present);
+                    log.clear();
                     restarted.write(MatchRestarted);
                 }
             }

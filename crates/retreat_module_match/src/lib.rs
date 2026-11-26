@@ -5,7 +5,7 @@
 //!   created when the first player (`PlayerId`) appears, or by `match.start`.
 //! - The scoreboard has one line per present player.
 //! - While running, each `PlayerDied` scores (a kill of another player, or a penalty for a
-//!   self-kill or a world death) and the clock counts down. At zero the match is finished and
+//!   self-kill or a world death), goes into the contract's `KillLog`, and the clock counts down. At zero the match is finished and
 //!   `MatchEnded` names the winner (`None` is a draw).
 //! - A finished match shows its result for a while, then restarts: scores are cleared and
 //!   `MatchRestarted` is sent, on which other modules reset themselves.
@@ -37,6 +37,16 @@ impl Plugin for MatchModulePlugin {
         app.register_command("match.start", "match.start", commands::start_command)
             .register_command("match.end", "match.end", commands::end_command)
             .register_command("match.restart", "match.restart", commands::restart_command)
+            .register_command(
+                "match.set_clock",
+                "match.set_clock <seconds>",
+                commands::set_clock_command,
+            )
+            .register_command(
+                "assert.match_clock",
+                "assert.match_clock <least seconds> <most seconds>",
+                commands::assert_clock_command,
+            )
             .register_command(
                 "assert.match_running",
                 "assert.match_running",

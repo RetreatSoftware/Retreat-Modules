@@ -115,6 +115,7 @@ fn the_contract_registers_the_shared_net_state() {
             "engine.intangible",
             "engine.pose",
             "gameplay.health",
+            "gameplay.kill_log",
             "gameplay.look",
             "gameplay.match",
             "gameplay.player",
@@ -146,4 +147,25 @@ fn adding_the_contract_twice_registers_everything_once() {
     assert_eq!(app.world().resource::<SpawnPoints>().0.len(), 1);
     app.world_mut().write_message(MatchRestarted);
     app.update();
+}
+
+#[test]
+fn the_kill_log_keeps_the_latest_deaths_and_numbers_them_on() {
+    let mut log = KillLog::default();
+    for victim in 0..=MAX_PLAYERS as u32 {
+        log.push(PlayerId(victim), None);
+    }
+    assert_eq!(log.entries().len(), MAX_PLAYERS);
+    assert_eq!(log.entries()[0].number, 1);
+    log.clear();
+    log.push(PlayerId(1), Some(PlayerId(2)));
+    assert_eq!(log.entries()[0].number, MAX_PLAYERS as u32 + 1);
+    assert_eq!(log.next_number(), MAX_PLAYERS as u32 + 2);
+}
+
+#[test]
+fn players_are_called_by_the_games_names_or_numbered() {
+    assert_eq!(PlayerNames::default().of(PlayerId(4)), "Player 4");
+    let names = PlayerNames(vec!["Red".to_string(), "Blue".to_string()]);
+    assert_eq!(names.of(PlayerId(3)), "Blue");
 }

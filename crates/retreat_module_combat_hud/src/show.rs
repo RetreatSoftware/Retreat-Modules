@@ -1,13 +1,17 @@
-//! Putting the view on screen.
+//! Putting the views on screen.
 
 use crate::config::CombatHudConfig;
+use crate::match_view::{KillFeed, MatchInput, kill_line, match_view};
 use crate::view::{HudInput, hud_view};
-use crate::{CROSSHAIR_WIDGET, HEALTH_WIDGET, HIT_WIDGET, RESPAWN_WIDGET, ammo_widget};
+use crate::widgets::{
+    CLOCK_WIDGET, CROSSHAIR_WIDGET, HEALTH_WIDGET, HIT_WIDGET, HudLines, RESPAWN_WIDGET,
+    RESULT_WIDGET, SCORE_HEAD_WIDGET, ammo_widget,
+};
 use bevy::prelude::*;
-use retreat_engine_api::{NetLocalClient, NetReplaying, RetiredEntity, UiHud};
+use retreat_engine_api::{InputActions, NetLocalClient, NetReplaying, RetiredEntity, UiHud};
 use retreat_gameplay_api::{
-    Health, PlayerId, RespawnTimer, SoloPlayer, WeaponKind, Weapons, local_player_id,
-    ticks_from_seconds,
+    Health, KillLog, MatchState, PlayerId, PlayerNames, RespawnTimer, Scoreboard, SoloPlayer,
+    WeaponKind, Weapons, local_player_id, ticks_from_seconds,
 };
 
 /// This machine's running hit marker. Not shared state.
@@ -20,6 +24,14 @@ pub(crate) struct HitMarker {
     /// must still be seen for one frame.
     unshown: bool,
 }
+
+/// This machine's kill feed.
+#[derive(Resource, Debug, Default)]
+pub(crate) struct ShownKills(pub KillFeed);
+
+/// Switched on by `hud.scoreboard on`, as the held button is.
+#[derive(Resource, Debug, Default)]
+pub(crate) struct ScoreboardSwitch(pub bool);
 
 /// Starts the marker when the server counts a new hit. In ticks, so a script sees the same thing.
 pub(crate) fn time_hit_marker(
@@ -49,6 +61,21 @@ pub(crate) fn time_hit_marker(
     marker.seen = hits;
 }
 
+/// Ages the kill feed and adds the deaths the match logged.
+pub(crate) fn time_kill_feed(
+    logs: Query<&KillLog, Without<RetiredEntity>>,
+    replaying: Res<NetReplaying>,
+    config: Res<CombatHudConfig>,
+    time: Res<Time<Fixed>>,
+    mut kills: ResMut<ShownKills>,
+) {
+    if replaying.0 {
+        return;
+    }
+    let lifetime = ticks_from_seconds(config.kill_feed_seconds, time.timestep()).max(1);
+    kills.0.tick(logs.iter().next(), lifetime);
+}
+
 type Players<'w, 's> = Query<
     'w,
     's,
@@ -61,39 +88,85 @@ type Players<'w, 's> = Query<
     Without<RetiredEntity>,
 >;
 
-pub(crate) fn show_hud(
-    players: Players,
-    client: Res<NetLocalClient>,
-    solo: Res<SoloPlayer>,
-    mut marker: ResMut<HitMarker>,
-    config: Res<CombatHudConfig>,
-    time: Res<Time<Fixed>>,
-    mut hud: ResMut<UiHud>,
-) {
-    let local = local_player_id(*client, *solo);
-    let own = players.iter().find(|(player, ..)| Some(**player) == local);
+/// Everything the HUD reads.
+#[derive(bevy::ecs::system::SystemParam)]
+pub(crate) struct Sources<'w, 's> {
+    players: Players<'w, 's>,
+    matches:
+        Query<'w, 's, (&'static MatchState, Option<&'static Scoreboard>), Without<RetiredEntity>>,
+    client: Res<'w, NetLocalClient>,
+    solo: Res<'w, SoloPlayer>,
+    names: Res<'w, PlayerNames>,
+    actions: Option<Res<'w, InputActions>>,
+    switch: Res<'w, ScoreboardSwitch>,
+    kills: Res<'w, ShownKills>,
+    config: Res<'w, CombatHudConfig>,
+    lines: Res<'w, HudLines>,
+    time: Res<'w, Time<Fixed>>,
+}
+
+pub(crate) fn show_hud(sources: Sources, mut marker: ResMut<HitMarker>, mut hud: ResMut<UiHud>) {
+    let local = local_player_id(*sources.client, *sources.solo);
+    // A server has nobody to show anything to.
+    let playing = local.and_then(|local| {
+        sources
+            .players
+            .iter()
+            .find(|(player, ..)| **player == local)
+    });
+    let current = local.and_then(|_| sources.matches.iter().next());
+    let held = sources
+        .actions
+        .as_ref()
+        .is_some_and(|actions| actions.is_held("hud_scoreboard"));
+    let table = match_view(
+        &MatchInput {
+            state: current.map(|(state, _)| *state),
+            board: current.and_then(|(_, board)| board.cloned()),
+            own: local,
+            scoreboard_wanted: held || sources.switch.0,
+            timestep: sources.time.timestep(),
+        },
+        &sources.names,
+    );
     let view = hud_view(
-        own.map_or_else(HudInput::default, |(_, health, weapons, respawn)| {
+        playing.map_or_else(HudInput::default, |(_, health, weapons, respawn)| {
             HudInput {
                 health: health.copied(),
                 weapons: weapons.cloned(),
                 respawn: respawn.copied(),
                 hit: marker.ticks_left > 0 || marker.unshown,
-                timestep: time.timestep(),
+                covered: table.score_head.is_some(),
+                timestep: sources.time.timestep(),
             }
         }),
     );
     marker.unshown = false;
-    let ammo = WeaponKind::ALL.map(|kind| {
-        let line = view.ammo.iter().find(|(found, _)| *found == kind);
-        (ammo_widget(kind), line.map(|(_, text)| text.clone()))
-    });
-    let texts = [
-        (HIT_WIDGET, view.hit.then(|| config.hit_marker_text.clone())),
+    let mut texts = vec![
+        (
+            HIT_WIDGET,
+            view.hit.then(|| sources.config.hit_marker_text.clone()),
+        ),
         (HEALTH_WIDGET, view.health),
         (RESPAWN_WIDGET, view.respawn),
+        (CLOCK_WIDGET, table.clock),
+        (RESULT_WIDGET, table.result),
+        (SCORE_HEAD_WIDGET, table.score_head),
     ];
-    for (id, text) in texts.into_iter().chain(ammo) {
+    texts.extend(WeaponKind::ALL.map(|kind| {
+        let line = view.ammo.iter().find(|(found, _)| *found == kind);
+        (ammo_widget(kind), line.map(|(_, text)| text.clone()))
+    }));
+    let mut rows = table.score_rows.into_iter();
+    texts.extend(sources.lines.score_rows.iter().map(|id| (*id, rows.next())));
+    let mut kills = sources
+        .kills
+        .0
+        .latest(sources.lines.kills.len())
+        .map(|entry| kill_line(entry, &sources.names))
+        .filter(|_| local.is_some());
+    texts.extend(sources.lines.kills.iter().map(|id| (*id, kills.next())));
+    for (id, text) in texts {
         show(&mut hud, id, text.is_some());
         if let Some(text) = text
             && !hud.has_text(id, &text)

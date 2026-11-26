@@ -12,7 +12,7 @@
 //!    writes `DamageRequested`: full on a direct hit, falling off with the distance to the body
 //!    ([`blast_damage`]), nothing behind a wall, reduced for the owner. Health decides what it does.
 //! 5. The explosion's look is one `VisualEffect` (shown once, replays included); the rocket stays a
-//!    few ticks, then is removed.
+//!    few ticks, then is removed. `MatchRestarted` removes every rocket.
 //!
 //! Numbers: [`LauncherConfig`]. Rolled-back state: the rifle-independent entry in the contract's
 //! `Weapons`, [`LauncherState`] and one [`Rocket`] plus `NetPose` per rocket.
@@ -92,6 +92,7 @@ impl Plugin for ProjectileLauncherModulePlugin {
                         .chain()
                         .in_set(GameplaySystems::Act),
                     state::count_hits.in_set(GameplaySystems::Match),
+                    state::remove_rockets.in_set(GameplaySystems::Restart),
                     state::refill_respawned.in_set(GameplaySystems::Respawned),
                 ),
             )

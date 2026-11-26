@@ -272,3 +272,16 @@ fn the_blast_numbers_are_a_straight_line() {
     let above = distance_to_body(Vec3::Y * 2.8, Vec3::Y * 0.9, size);
     assert!((above - 1.0).abs() < 1.0e-5, "{above}");
 }
+
+#[test]
+fn a_new_match_removes_the_rockets_in_flight() {
+    let mut app = app(30.0);
+    ok(&mut app, "launcher.fire 0 0");
+    ticks(&mut app, 3);
+    app.world_mut().write_message(MatchRestarted);
+    ticks(&mut app, 1);
+    let mut gone = app
+        .world_mut()
+        .query_filtered::<&Rocket, With<RemoveNetEntity>>();
+    assert_eq!(gone.iter(app.world()).count(), 1);
+}

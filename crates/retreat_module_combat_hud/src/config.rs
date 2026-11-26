@@ -11,6 +11,12 @@ pub struct CombatHudConfig {
     pub font_size: f32,
     /// Width of the crosshair in pixels.
     pub crosshair_size: f32,
+    /// Text size of the scoreboard (up to a line per player, so smaller than the rest).
+    pub scoreboard_font_size: f32,
+    /// How long a death stays in the kill feed.
+    pub kill_feed_seconds: f32,
+    /// Most deaths in the kill feed at once.
+    pub kill_feed_lines: u32,
 }
 
 impl Default for CombatHudConfig {
@@ -20,6 +26,9 @@ impl Default for CombatHudConfig {
             hit_marker_text: "HIT".to_string(),
             font_size: 28.0,
             crosshair_size: 24.0,
+            scoreboard_font_size: 22.0,
+            kill_feed_seconds: 4.0,
+            kill_feed_lines: 4,
         }
     }
 }
@@ -31,6 +40,8 @@ impl CombatHudConfig {
             ("hit_marker_seconds", self.hit_marker_seconds),
             ("font_size", self.font_size),
             ("crosshair_size", self.crosshair_size),
+            ("scoreboard_font_size", self.scoreboard_font_size),
+            ("kill_feed_seconds", self.kill_feed_seconds),
         ] {
             if !(value.is_finite() && value > 0.0) {
                 return Err(format!("{field} must be more than 0, got {value}"));

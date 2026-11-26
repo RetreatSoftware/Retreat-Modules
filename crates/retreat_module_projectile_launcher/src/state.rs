@@ -2,9 +2,10 @@
 
 use crate::config::LauncherConfig;
 use bevy::prelude::*;
-use retreat_engine_api::{NetState, RetiredEntity};
+use retreat_engine_api::{NetState, RemoveNetEntity, RetiredEntity};
 use retreat_gameplay_api::{
-    DamageApplied, DamageCause, Health, PlayerId, PlayerRespawned, WeaponKind, Weapons,
+    DamageApplied, DamageCause, Health, MatchRestarted, PlayerId, PlayerRespawned, WeaponKind,
+    Weapons,
 };
 use retreat_weapon_kit::{WeaponTicks, advance_weapon, equip, loaded};
 use serde::{Deserialize, Serialize};
@@ -112,5 +113,19 @@ pub(crate) fn refill_respawned(
                 launcher.cooldown_ticks = 0;
             }
         }
+    }
+}
+
+/// A new match starts without the old one's rockets.
+pub(crate) fn remove_rockets(
+    mut restarts: MessageReader<MatchRestarted>,
+    rockets: Query<Entity, (With<Rocket>, Without<RetiredEntity>)>,
+    mut commands: Commands,
+) {
+    if restarts.read().count() == 0 {
+        return;
+    }
+    for rocket in &rockets {
+        commands.entity(rocket).insert(RemoveNetEntity);
     }
 }

@@ -178,3 +178,47 @@ fn an_invalid_config_is_refused_at_startup() {
         })
         .add_plugins(MatchModulePlugin);
 }
+
+fn log(app: &mut App) -> KillLog {
+    let mut logs = app.world_mut().query::<&KillLog>();
+    logs.single(app.world()).expect("one match").clone()
+}
+
+#[test]
+fn deaths_are_logged_for_everyone_to_see_and_forgotten_with_the_match() {
+    let mut app = app();
+    join(&mut app, 1);
+    join(&mut app, 2);
+    ticks(&mut app, 1);
+    die(&mut app, 2, Some(1));
+    ticks(&mut app, 1);
+    assert_eq!(
+        log(&mut app).entries(),
+        [KillEntry {
+            number: 0,
+            victim: PlayerId(2),
+            killer: Some(PlayerId(1)),
+        }]
+    );
+    ok(&mut app, "match.restart");
+    assert!(log(&mut app).entries().is_empty());
+    die(&mut app, 1, None);
+    ticks(&mut app, 1);
+    assert_eq!(log(&mut app).entries()[0].number, 1);
+}
+
+#[test]
+fn the_clock_of_the_current_phase_can_be_set() {
+    let mut app = app();
+    assert!(run(&mut app, "match.set_clock 1").is_err(), "no match");
+    join(&mut app, 1);
+    ticks(&mut app, 1);
+    ok(&mut app, "match.set_clock 0.5");
+    ok(&mut app, "assert.match_clock 0.49 0.5");
+    ticks(&mut app, 32);
+    ok(&mut app, "assert.match_finished");
+    ok(&mut app, "match.set_clock 100");
+    ticks(&mut app, RESULT_TICKS);
+    ok(&mut app, "assert.match_finished");
+    assert!(run(&mut app, "match.set_clock 0").is_err());
+}
