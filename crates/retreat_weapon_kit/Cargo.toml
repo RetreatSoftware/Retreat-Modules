@@ -1,0 +1,15 @@
+[package]
+name = "retreat_weapon_kit"
+description = "What every Retreat weapon module does the same way: ammo rules, trigger, aim, commands."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lib]
+test = false
+doctest = false
+
+[dependencies]
+bevy.workspace = true
+retreat_engine_api.workspace = true
+retreat_gameplay_api.workspace = true

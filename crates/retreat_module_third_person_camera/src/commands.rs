@@ -4,7 +4,7 @@ use crate::config::ShoulderConfig;
 use crate::follow::ShoulderCamera;
 use bevy::prelude::*;
 use retreat_engine_api::{CommandArgs, CommandError, CommandOutcome, CommandResult, GameCamera};
-use retreat_gameplay_api::{PlayerId, character_feet};
+use retreat_gameplay_api::{CharacterSize, PlayerId};
 
 pub(crate) fn follow_command(world: &mut World, args: &CommandArgs) -> CommandResult {
     let has_player = !args.rest(1).is_empty();
@@ -59,7 +59,8 @@ pub(crate) fn assert_distance_command(world: &mut World, args: &CommandArgs) -> 
         return Err(args.failure("the camera follows no player"));
     };
     let height = world.resource::<ShoulderConfig>().pivot_height;
-    let distance = position.distance(character_feet(center) + Vec3::Y * height);
+    let feet = world.resource::<CharacterSize>().feet(center);
+    let distance = position.distance(feet + Vec3::Y * height);
     if !(least..=most).contains(&distance) {
         return Err(args.failure(format!(
             "the camera is {distance} m from the head, expected {least} to {most}"

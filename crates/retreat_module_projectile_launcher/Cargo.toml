@@ -1,0 +1,31 @@
+[package]
+name = "retreat_module_projectile_launcher"
+description = "Retreat module: a rocket launcher with predicted rockets and server-decided blast damage."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lib]
+test = false
+doctest = false
+
+[dependencies]
+bevy.workspace = true
+retreat_engine_api.workspace = true
+retreat_gameplay_api.workspace = true
+retreat_weapon_kit.workspace = true
+serde.workspace = true
+
+# Module manifest (schema in Retreat-Modules/CLAUDE.md).
+[package.metadata.retreat]
+manifest_version = 1
+id = "projectile_launcher"
+display_name = "Rocket launcher"
+summary = "Visible rockets predicted by the shooter; the server decides the blast damage, with falloff."
+plugin = "retreat_module_projectile_launcher::ProjectileLauncherModulePlugin"
+commands = ["launcher.fire", "launcher.reload", "assert.launcher_ammo", "assert.launcher_hits", "assert.launcher_rockets"]
+actions = ["launcher_fire", "launcher_reload"]
+requires = ["input", "physics", "networking"]
+engine_api = "0.1"
+targets = ["native", "wasm"]
+network_role = "both"

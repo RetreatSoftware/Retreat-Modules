@@ -2,7 +2,7 @@
 
 use crate::config::ShoulderConfig;
 use bevy::prelude::*;
-use retreat_gameplay_api::{LookAngles, character_feet, horizontal_axes, view_direction};
+use retreat_gameplay_api::{LookAngles, horizontal_axes, view_direction};
 
 /// The three points of an over-the-shoulder view.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -17,12 +17,12 @@ pub struct ShoulderPoints {
 
 /// `side` is 1 for the right shoulder and -1 for the left.
 pub fn shoulder_points(
-    center: Vec3,
+    feet: Vec3,
     look: LookAngles,
     side: f32,
     config: &ShoulderConfig,
 ) -> ShoulderPoints {
-    let pivot = character_feet(center) + Vec3::Y * config.pivot_height;
+    let pivot = feet + Vec3::Y * config.pivot_height;
     let (_, right) = horizontal_axes(look.yaw);
     let shoulder = pivot + right * (config.shoulder_offset * side);
     ShoulderPoints {

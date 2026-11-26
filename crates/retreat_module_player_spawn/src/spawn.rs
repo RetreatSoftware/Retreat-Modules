@@ -3,8 +3,8 @@
 use bevy::prelude::*;
 use retreat_engine_api::{NetClientJoined, NetClientLeft, PhysicsBody, RemovePhysicsBody};
 use retreat_gameplay_api::{
-    CHARACTER_CAPSULE_HALF_HEIGHT, CHARACTER_RADIUS, LookAngles, MAX_PLAYERS, PlayerId,
-    SpawnPoints, character_center, character_feet, choose_spawn_point, player_entity_name,
+    CharacterSize, LookAngles, MAX_PLAYERS, PlayerId, SpawnPoints, choose_spawn_point,
+    player_entity_name,
 };
 
 const CHARACTER_COLOR: Color = Color::srgb(0.9, 0.35, 0.25);
@@ -12,6 +12,7 @@ const CHARACTER_COLOR: Color = Color::srgb(0.9, 0.35, 0.25);
 /// Spawns the character of `player`. The error says why it cannot exist.
 pub fn spawn_character(world: &mut World, player: PlayerId) -> Result<(), String> {
     let name = player_entity_name(player);
+    let size = *world.resource::<CharacterSize>();
     let mut existing = world.query::<(&Name, Option<&PlayerId>, Option<&Transform>)>();
     let mut occupied = Vec::new();
     let mut players = 0;
@@ -22,7 +23,7 @@ pub fn spawn_character(world: &mut World, player: PlayerId) -> Result<(), String
         }
         if other.is_some() {
             players += 1;
-            occupied.extend(transform.map(|t| character_feet(t.translation)));
+            occupied.extend(transform.map(|t| size.feet(t.translation)));
         }
     }
     if players >= MAX_PLAYERS {
@@ -33,7 +34,7 @@ pub fn spawn_character(world: &mut World, player: PlayerId) -> Result<(), String
         return Err("there are no spawn points; load a map first".to_string());
     };
     let spawn = points[index];
-    let mesh = capsule_mesh(world);
+    let mesh = capsule_mesh(world, size);
     let mut character = world.spawn((
         Name::new(name),
         player,
@@ -41,8 +42,8 @@ pub fn spawn_character(world: &mut World, player: PlayerId) -> Result<(), String
             yaw: spawn.yaw,
             pitch: 0.0,
         },
-        PhysicsBody::character(CHARACTER_CAPSULE_HALF_HEIGHT, CHARACTER_RADIUS),
-        Transform::from_translation(character_center(spawn.feet)),
+        PhysicsBody::character(size.capsule_half_height(), size.radius),
+        Transform::from_translation(size.center(spawn.feet)),
     ));
     if let Some(mesh) = mesh {
         character.insert(mesh);
@@ -51,12 +52,15 @@ pub fn spawn_character(world: &mut World, player: PlayerId) -> Result<(), String
 }
 
 /// A visible capsule, or nothing in an app without mesh assets.
-fn capsule_mesh(world: &mut World) -> Option<(Mesh3d, MeshMaterial3d<StandardMaterial>)> {
+fn capsule_mesh(
+    world: &mut World,
+    size: CharacterSize,
+) -> Option<(Mesh3d, MeshMaterial3d<StandardMaterial>)> {
     let mesh = world
         .get_resource_mut::<Assets<Mesh>>()?
         .add(Capsule3d::new(
-            CHARACTER_RADIUS,
-            CHARACTER_CAPSULE_HALF_HEIGHT * 2.0,
+            size.radius,
+            size.capsule_half_height() * 2.0,
         ));
     let material = world
         .get_resource_mut::<Assets<StandardMaterial>>()?

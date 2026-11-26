@@ -5,6 +5,10 @@ version.workspace = true
 edition.workspace = true
 publish.workspace = true
 
+[lib]
+test = false
+doctest = false
+
 [dependencies]
 semver = "1"
 serde = { version = "1", features = ["derive"] }

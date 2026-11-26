@@ -4881,12 +4881,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "retreat_module_projectile_launcher"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "retreat_engine_api",
+ "retreat_gameplay_api",
+ "retreat_weapon_kit",
+ "serde",
+]
+
+[[package]]
 name = "retreat_module_rifle"
 version = "0.1.0"
 dependencies = [
  "bevy",
  "retreat_engine_api",
  "retreat_gameplay_api",
+ "retreat_weapon_kit",
  "serde",
 ]
 
@@ -4927,6 +4939,15 @@ dependencies = [
 name = "retreat_rng"
 version = "0.1.0"
 source = "git+https://github.com/RetreatSoftware/Retreat-CoreSDK#c0baf38adf54767162bd340f259ebbd27f31cd62"
+
+[[package]]
+name = "retreat_weapon_kit"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "retreat_engine_api",
+ "retreat_gameplay_api",
+]
 
 [[package]]
 name = "rodio"

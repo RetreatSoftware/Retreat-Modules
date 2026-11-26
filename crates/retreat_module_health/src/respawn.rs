@@ -3,10 +3,10 @@
 use crate::config::HealthConfig;
 use crate::state::SpawnProtection;
 use bevy::prelude::*;
-use retreat_engine_api::RetiredEntity;
+use retreat_engine_api::{Intangible, RetiredEntity};
 use retreat_gameplay_api::{
-    Health, MatchRestarted, PlayerFired, PlayerId, PlayerRespawned, RespawnTimer, SpawnPoint,
-    SpawnPoints, character_feet, choose_spawn_point, ticks_from_seconds,
+    CharacterSize, Health, MatchRestarted, PlayerFired, PlayerId, PlayerRespawned, RespawnTimer,
+    SpawnPoint, SpawnPoints, choose_spawn_point, ticks_from_seconds,
 };
 
 type Players<'w, 's> = Query<
@@ -22,6 +22,13 @@ type Players<'w, 's> = Query<
     ),
     Without<RetiredEntity>,
 >;
+
+/// Where a player can respawn, and how big it is there.
+#[derive(bevy::ecs::system::SystemParam)]
+pub(crate) struct Places<'w> {
+    points: Res<'w, SpawnPoints>,
+    size: Res<'w, CharacterSize>,
+}
 
 type NewPlayers = (With<PlayerId>, Without<Health>, Without<RetiredEntity>);
 
@@ -62,7 +69,7 @@ pub(crate) fn advance_timers(
     mut players: Players,
     config: Res<HealthConfig>,
     time: Res<Time<Fixed>>,
-    points: Res<SpawnPoints>,
+    places: Places,
     mut respawned: MessageWriter<PlayerRespawned>,
     mut commands: Commands,
 ) {
@@ -87,15 +94,17 @@ pub(crate) fn advance_timers(
     let mut occupied: Vec<Vec3> = players
         .iter()
         .filter(|(_, _, health, ..)| health.is_alive())
-        .filter_map(|(_, _, _, transform, ..)| transform.map(|t| character_feet(t.translation)))
+        .filter_map(|(_, _, _, transform, ..)| transform.map(|t| places.size.feet(t.translation)))
         .collect();
     // By player id: query order can change after a rewind.
     due.sort();
     for (_, entity) in due {
-        if let Some(message) = respawn(&mut players, entity, &points, &mut occupied) {
+        if let Some(message) = respawn(&mut players, entity, &places, &mut occupied) {
             respawned.write(message);
             protect(&mut commands, entity, &config, &time);
-            commands.entity(entity).remove::<RespawnTimer>();
+            commands
+                .entity(entity)
+                .remove::<(RespawnTimer, Intangible)>();
         }
     }
 }
@@ -106,7 +115,7 @@ pub(crate) fn respawn_all_on_restart(
     mut players: Players,
     config: Res<HealthConfig>,
     time: Res<Time<Fixed>>,
-    points: Res<SpawnPoints>,
+    places: Places,
     mut respawned: MessageWriter<PlayerRespawned>,
     mut commands: Commands,
 ) {
@@ -120,9 +129,11 @@ pub(crate) fn respawn_all_on_restart(
     everyone.sort();
     let mut occupied = Vec::new();
     for (_, entity) in everyone {
-        if let Some(message) = respawn(&mut players, entity, &points, &mut occupied) {
+        if let Some(message) = respawn(&mut players, entity, &places, &mut occupied) {
             respawned.write(message);
-            commands.entity(entity).remove::<RespawnTimer>();
+            commands
+                .entity(entity)
+                .remove::<(RespawnTimer, Intangible)>();
             protect(&mut commands, entity, &config, &time);
         }
     }
@@ -132,15 +143,15 @@ pub(crate) fn respawn_all_on_restart(
 fn respawn(
     players: &mut Players,
     entity: Entity,
-    points: &SpawnPoints,
+    places: &Places,
     occupied: &mut Vec<Vec3>,
 ) -> Option<PlayerRespawned> {
     let (_, player, mut health, transform, ..) = players.get_mut(entity).ok()?;
     health.restore();
-    let spawn = match choose_spawn_point(&points.0, occupied) {
-        Some(index) => points.0[index],
+    let spawn = match choose_spawn_point(&places.points.0, occupied) {
+        Some(index) => places.points.0[index],
         None => SpawnPoint {
-            feet: transform.map_or(Vec3::ZERO, |t| character_feet(t.translation)),
+            feet: transform.map_or(Vec3::ZERO, |t| places.size.feet(t.translation)),
             yaw: 0.0,
         },
     };

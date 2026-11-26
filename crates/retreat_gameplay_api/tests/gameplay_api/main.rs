@@ -120,7 +120,7 @@ fn the_contract_registers_the_shared_net_state() {
             "gameplay.player",
             "gameplay.respawn",
             "gameplay.scoreboard",
-            "gameplay.weapon"
+            "gameplay.weapons"
         ]
     );
 }

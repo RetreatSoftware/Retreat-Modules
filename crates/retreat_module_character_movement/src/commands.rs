@@ -8,7 +8,7 @@ use retreat_engine_api::{
     CommandArgs, CommandError, CommandOutcome, CommandResult, NetCommandSender, NetLocalClient,
     PhysicsVelocity, RetiredEntity,
 };
-use retreat_gameplay_api::{LookAngles, PlayerId, SoloPlayer, character_feet, local_player_id};
+use retreat_gameplay_api::{CharacterSize, LookAngles, PlayerId, SoloPlayer, local_player_id};
 
 /// `movement.input`: the input of the player who sent it (without a sender, this machine's player).
 pub(crate) fn input_command(world: &mut World, args: &CommandArgs) -> CommandResult {
@@ -107,7 +107,7 @@ pub(crate) fn assert_near_command(world: &mut World, args: &CommandArgs) -> Comm
     );
     let tolerance = finite(args, 4, "tolerance")?;
     let (_, center, _) = character(world, args, player)?;
-    let feet = character_feet(center);
+    let feet = world.resource::<CharacterSize>().feet(center);
     if feet.distance(expected) > tolerance {
         return Err(args.failure(format!(
             "player {} stands at {feet}, expected {expected} within {tolerance}",

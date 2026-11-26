@@ -3,7 +3,7 @@
 use crate::config::HealthConfig;
 use crate::state::SpawnProtection;
 use bevy::prelude::*;
-use retreat_engine_api::RetiredEntity;
+use retreat_engine_api::{Intangible, RetiredEntity};
 use retreat_gameplay_api::{
     DamageApplied, DamageCause, DamageRequested, Health, MatchState, PlayerDied, PlayerId,
     RespawnTimer, ticks_from_seconds,
@@ -119,7 +119,8 @@ impl Outcome<'_, '_> {
                 ticks_from_seconds(self.config.respawn_delay_seconds, self.time.timestep()).max(1);
             self.commands
                 .entity(entity)
-                .insert(RespawnTimer { ticks_left: delay })
+                // The dead are walked through and casts ignore them until they respawn.
+                .insert((RespawnTimer { ticks_left: delay }, Intangible))
                 .remove::<SpawnProtection>();
         }
     }

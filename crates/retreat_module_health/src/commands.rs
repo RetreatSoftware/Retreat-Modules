@@ -4,8 +4,8 @@ use crate::damage::KillRequested;
 use bevy::prelude::*;
 use retreat_engine_api::{CommandArgs, CommandOutcome, CommandResult, NetState, RetiredEntity};
 use retreat_gameplay_api::{
-    DamageCause, DamageRequested, Health, MAX_PLAYERS, PlayerId, PlayerRespawned, SpawnPoints,
-    character_center, character_feet, choose_spawn_point, player_entity_name,
+    CharacterSize, DamageCause, DamageRequested, Health, MAX_PLAYERS, PlayerId, PlayerRespawned,
+    SpawnPoints, choose_spawn_point, player_entity_name,
 };
 use serde::{Deserialize, Serialize};
 
@@ -24,6 +24,7 @@ pub(crate) fn add_dummy_command(world: &mut World, args: &CommandArgs) -> Comman
     args.expect_count(1)?;
     let player = PlayerId(args.parse(0, "player")?);
     let name = player_entity_name(player);
+    let size = *world.resource::<CharacterSize>();
     let mut existing = world.query::<(&Name, Option<&Transform>, Has<PlayerId>)>();
     let mut occupied = Vec::new();
     let mut players = 0;
@@ -33,7 +34,7 @@ pub(crate) fn add_dummy_command(world: &mut World, args: &CommandArgs) -> Comman
         }
         if is_player {
             players += 1;
-            occupied.extend(transform.map(|t| character_feet(t.translation)));
+            occupied.extend(transform.map(|t| size.feet(t.translation)));
         }
     }
     if players >= MAX_PLAYERS {
@@ -45,7 +46,7 @@ pub(crate) fn add_dummy_command(world: &mut World, args: &CommandArgs) -> Comman
         Name::new(name),
         player,
         HealthDummy,
-        Transform::from_translation(character_center(feet)),
+        Transform::from_translation(size.center(feet)),
     ));
     Ok(CommandOutcome::Continue)
 }
@@ -54,11 +55,12 @@ pub(crate) fn add_dummy_command(world: &mut World, args: &CommandArgs) -> Comman
 pub(crate) fn move_dummies_to_spawn(
     mut respawned: MessageReader<PlayerRespawned>,
     mut dummies: Query<(&PlayerId, &mut Transform), Dummies>,
+    size: Res<CharacterSize>,
 ) {
     for message in respawned.read() {
         for (player, mut transform) in &mut dummies {
             if *player == message.player {
-                transform.translation = character_center(message.spawn.feet);
+                transform.translation = size.center(message.spawn.feet);
             }
         }
     }

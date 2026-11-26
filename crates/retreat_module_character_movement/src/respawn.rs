@@ -3,7 +3,7 @@
 use crate::state::MovementState;
 use bevy::prelude::*;
 use retreat_engine_api::{PhysicsTeleport, PhysicsVelocitySet, RetiredEntity};
-use retreat_gameplay_api::{LookAngles, PlayerId, PlayerRespawned, character_center};
+use retreat_gameplay_api::{CharacterSize, LookAngles, PlayerId, PlayerRespawned};
 
 pub(crate) fn teleport_respawned(
     mut respawns: MessageReader<PlayerRespawned>,
@@ -11,6 +11,7 @@ pub(crate) fn teleport_respawned(
         (Entity, &PlayerId, &mut MovementState, &mut LookAngles),
         Without<RetiredEntity>,
     >,
+    size: Res<CharacterSize>,
     mut commands: Commands,
 ) {
     for message in respawns.read() {
@@ -31,7 +32,7 @@ pub(crate) fn teleport_respawned(
             commands
                 .entity(entity)
                 .remove::<PhysicsVelocitySet>()
-                .insert(PhysicsTeleport(character_center(message.spawn.feet)));
+                .insert(PhysicsTeleport(size.center(message.spawn.feet)));
         }
     }
 }

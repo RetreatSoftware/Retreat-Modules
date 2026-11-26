@@ -7,7 +7,9 @@ use retreat_engine_api::{
     CameraProjection, DrawnPose, GameCamera, NetLocalClient, PhysicsShape, RetiredEntity,
     ShapeCast, cast_shape,
 };
-use retreat_gameplay_api::{LookAngles, PlayerId, SoloPlayer, local_player_id, view_direction};
+use retreat_gameplay_api::{
+    CharacterSize, LookAngles, PlayerId, SoloPlayer, local_player_id, view_direction,
+};
 
 /// On a camera that follows a player.
 #[derive(Component, Debug, Clone, Copy, PartialEq)]
@@ -68,7 +70,8 @@ pub(crate) fn place_cameras(world: &mut World) {
         else {
             continue;
         };
-        let points = shoulder_points(center, look, follow.side, &config);
+        let feet = world.resource::<CharacterSize>().feet(center);
+        let points = shoulder_points(feet, look, follow.side, &config);
         let shoulder = unblocked(world, points.pivot, points.shoulder, &characters, &config);
         let back = points.camera - points.shoulder;
         let behind = unblocked(world, shoulder, shoulder + back, &characters, &config);

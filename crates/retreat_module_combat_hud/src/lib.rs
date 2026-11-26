@@ -3,9 +3,9 @@
 //!
 //! | Widget | Shown when |
 //! |---|---|
-//! | `hud_crosshair` | the player has a `WeaponStatus` and is alive |
-//! | `hud_ammo` | the player has a `WeaponStatus` and is alive |
-//! | `hud_hit` | for a moment after `WeaponStatus::hits_landed` rises |
+//! | `hud_crosshair` | the player carries a weapon and is alive |
+//! | `hud_ammo_<weapon>` | the same; one line for each weapon in `Weapons`, with its name and ammo |
+//! | `hud_hit` | for a moment after any weapon's `hits_landed` rises |
 //! | `hud_health` | the player has `Health` |
 //! | `hud_respawn` | the player has a `RespawnTimer` |
 //!
@@ -20,16 +20,23 @@ mod view;
 
 use bevy::prelude::*;
 use retreat_engine_api::{AppCommandExt, AppHudExt, HudAnchor, HudKind, HudWidget};
-use retreat_gameplay_api::{GameplaySystems, add_gameplay_contract};
+use retreat_gameplay_api::{GameplaySystems, WeaponKind, add_gameplay_contract};
 
 pub use config::CombatHudConfig;
 pub use view::{HudInput, HudView, hud_view};
 
 pub const CROSSHAIR_WIDGET: &str = "hud_crosshair";
-pub const AMMO_WIDGET: &str = "hud_ammo";
 pub const HIT_WIDGET: &str = "hud_hit";
 pub const HEALTH_WIDGET: &str = "hud_health";
 pub const RESPAWN_WIDGET: &str = "hud_respawn";
+
+/// The ammo line of one weapon.
+pub fn ammo_widget(kind: WeaponKind) -> &'static str {
+    match kind {
+        WeaponKind::Rifle => "hud_ammo_rifle",
+        WeaponKind::Launcher => "hud_ammo_launcher",
+    }
+}
 
 /// Adds the HUD. Insert a [`CombatHudConfig`] first to change the numbers.
 pub struct CombatHudModulePlugin;
@@ -56,7 +63,6 @@ impl Plugin for CombatHudModulePlugin {
             },
             visible: false,
         })
-        .register_hud_widget(text(AMMO_WIDGET, HudAnchor::BottomRight, config.font_size))
         .register_hud_widget(text(HIT_WIDGET, HudAnchor::Center, config.font_size))
         .register_hud_widget(text(HEALTH_WIDGET, HudAnchor::BottomLeft, config.font_size))
         .register_hud_widget(text(RESPAWN_WIDGET, HudAnchor::Center, config.font_size))
@@ -71,5 +77,12 @@ impl Plugin for CombatHudModulePlugin {
             show::time_hit_marker.after(GameplaySystems::Respawned),
         )
         .add_systems(Update, show::show_hud);
+        for kind in WeaponKind::ALL {
+            app.register_hud_widget(text(
+                ammo_widget(kind),
+                HudAnchor::BottomRight,
+                config.font_size,
+            ));
+        }
     }
 }

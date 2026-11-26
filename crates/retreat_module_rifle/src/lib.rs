@@ -5,8 +5,10 @@
 //!    it aims from the eyes at what the center of the camera shows and issues
 //!    `rifle.fire <yaw> <pitch> <view_tick>`. A network client queues the line, which the engine
 //!    runs on the client (prediction) and on the server.
-//! 2. The command checks that the player may shoot (alive, match running, ready), uses a round and
-//!    writes `PlayerFired`.
+//! 2. The command checks that the player may shoot (alive, match running, ready), uses a round,
+//!    writes `PlayerFired` and records the shot ([`RifleShot`]: where it went), which every machine
+//!    shows as a muzzle flash and a tracer (`tracer`): the shooter at once, the others when the
+//!    state arrives.
 //! 3. Only where the command is authoritative (a server or a game without a network) it casts the
 //!    ray against the other players **as the shooter saw them** (`cast_ray_at`) and writes
 //!    `DamageRequested`. Health decides what the damage does.
@@ -14,27 +16,25 @@
 //!    shooter with the replicated state (a HUD shows a hit marker).
 //!
 //! The dead neither shoot nor stop a shot. Ammo is refilled on `PlayerRespawned`.
-//! Numbers: [`RifleConfig`]. Rolled-back state: `WeaponStatus` (contract) and [`RifleState`].
+//! Numbers: [`RifleConfig`]. Rolled-back state: the rifle's entry in the contract's `Weapons`,
+//! [`RifleState`] and [`RifleShot`]. Rules shared with other weapons: `retreat_weapon_kit`.
 
-mod aim;
 mod commands;
 mod config;
 mod input;
-mod rules;
 mod state;
-mod targets;
+mod tracer;
 
 use bevy::prelude::*;
 use retreat_engine_api::{
     AppCommandExt, AppInputExt, AppNetExt, AppNetStateExt, HELD_ONLY, InputAction,
-    InputActionSystems, InputKey,
+    InputActionSystems, InputKey, VisualEffects,
 };
 use retreat_gameplay_api::{GameplaySystems, add_gameplay_contract};
 
-pub use aim::aim_angles;
 pub use config::RifleConfig;
-pub use rules::{LATE_INPUT_TOLERANCE_TICKS, RifleTicks, ready_to_send, try_fire, try_reload};
-pub use state::RifleState;
+pub use state::{RifleShot, RifleState};
+pub use tracer::tracer_points;
 
 /// Adds the rifle. Insert a [`RifleConfig`] first to change the numbers.
 pub struct RifleModulePlugin;
@@ -46,7 +46,9 @@ impl Plugin for RifleModulePlugin {
         if let Err(problem) = app.world().resource::<RifleConfig>().validate() {
             panic!("invalid RifleConfig: {problem}");
         }
-        app.register_net_state::<RifleState>()
+        app.init_resource::<VisualEffects>()
+            .register_net_state::<RifleState>()
+            .register_net_state::<RifleShot>()
             .register_command(
                 "rifle.fire",
                 "rifle.fire <yaw> <pitch> [view_tick]",
@@ -74,11 +76,12 @@ impl Plugin for RifleModulePlugin {
                     input::send_input
                         .after(InputActionSystems)
                         .before(GameplaySystems::Act),
-                    (state::attach_weapons, state::advance_timers)
+                    (state::attach_rifles, state::advance_timers)
                         .chain()
                         .in_set(GameplaySystems::Act),
                     state::count_hits.in_set(GameplaySystems::Match),
                     state::refill_respawned.in_set(GameplaySystems::Respawned),
+                    tracer::show_other_shots.after(GameplaySystems::Respawned),
                 ),
             );
     }

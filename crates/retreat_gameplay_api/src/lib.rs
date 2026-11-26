@@ -20,7 +20,8 @@
 //! | [`LookAngles`] (component) | spawning, then movement | camera, weapons, visuals |
 //! | [`Health`] (component) | health | HUD, weapons, visuals |
 //! | [`RespawnTimer`] (component, on the dead) | health | HUD |
-//! | [`WeaponStatus`] (component) | weapons | HUD |
+//! | [`Weapons`] (component) | weapons, one entry each | HUD |
+//! | [`CharacterSize`] (resource) | the game | spawning, weapons, camera, visuals, respawn |
 //! | [`PlayerFired`] | weapons | health |
 //! | [`DamageRequested`] | weapons, hazards | health |
 //! | [`DamageApplied`] | health | HUD, sounds |
@@ -52,28 +53,31 @@ pub use health::{DamageOutcome, Health, RespawnTimer};
 pub use local_player::{SoloPlayer, local_player_id};
 pub use look::{LookAngles, horizontal_axes, view_direction};
 pub use match_state::{MATCH_ENTITY_NAME, MatchEnded, MatchPhase, MatchRestarted, MatchState};
-pub use player::{
-    CHARACTER_CAPSULE_HALF_HEIGHT, CHARACTER_EYE_HEIGHT, CHARACTER_HEIGHT, CHARACTER_RADIUS,
-    MAX_PLAYERS, PlayerId, character_center, character_feet, player_entity_name,
-};
+pub use player::{CharacterSize, MAX_PLAYERS, PlayerId, player_entity_name};
 pub use schedule::GameplaySystems;
 pub use score::{ScoreEntry, Scoreboard};
 pub use spawn::{SpawnPoint, SpawnPoints};
 pub use spawn_choice::choose_spawn_point;
 pub use time::ticks_from_seconds;
-pub use weapon::WeaponStatus;
+pub use weapon::{WeaponKind, WeaponStatus, Weapons};
 
 /// Registers the shared net state, messages, resources and system order. Safe to call from several
 /// plugins.
 pub fn add_gameplay_contract(app: &mut App) {
     add_net_contract(app);
+    if let Some(size) = app.world().get_resource::<CharacterSize>()
+        && let Err(problem) = size.validate()
+    {
+        panic!("invalid CharacterSize: {problem}");
+    }
     app.register_net_state::<PlayerId>()
         .register_net_state::<Health>()
         .register_net_state::<MatchState>()
         .register_net_state::<Scoreboard>()
         .register_net_state::<LookAngles>()
         .register_net_state::<RespawnTimer>()
-        .register_net_state::<WeaponStatus>()
+        .register_net_state::<Weapons>()
+        .init_resource::<CharacterSize>()
         .add_message::<PlayerFired>()
         .init_resource::<SoloPlayer>()
         .add_message::<DamageRequested>()

@@ -1,10 +1,12 @@
 //! Reads every module of a Retreat-Modules checkout from disk and validates it.
 //!
 //! Layout contract: `<root>/crates/retreat_module_<id>/{Cargo.toml, src/**/*.rs}`. The contract
-//! crates (`dependencies::CONTRACT_CRATES`) are not modules; only their dependencies are checked.
+//! crates (`dependencies::CONTRACT_CRATES`) and libraries (`LIBRARY_CRATES`) are not modules; only
+//! their dependencies are checked.
 
 use crate::dependencies::{
-    CONTRACT_CRATES, CONTRACT_DEPENDENCIES, MODULE_DEPENDENCIES, check_dependencies,
+    CONTRACT_CRATES, CONTRACT_DEPENDENCIES, LIBRARY_CRATES, LIBRARY_DEPENDENCIES,
+    MODULE_DEPENDENCIES, check_dependencies,
 };
 use crate::manifest::Manifest;
 use crate::problem::Problem;
@@ -58,8 +60,16 @@ pub fn validate_workspace(root: &Path) -> WorkspaceReport {
     for directory in directories {
         load_module(&directory, &mut report);
     }
-    for name in CONTRACT_CRATES {
-        check_contract_crate(&crates_dir.join(name), name, &mut report);
+    let shared = CONTRACT_CRATES
+        .iter()
+        .map(|name| (name, CONTRACT_DEPENDENCIES))
+        .chain(
+            LIBRARY_CRATES
+                .iter()
+                .map(|name| (name, LIBRARY_DEPENDENCIES)),
+        );
+    for (name, allowed) in shared {
+        check_shared_crate(&crates_dir.join(name), name, allowed, &mut report);
     }
     let manifests: Vec<&Manifest> = report.modules.iter().map(|m| &m.manifest).collect();
     let duplicates = find_duplicates(&manifests);
@@ -117,15 +127,21 @@ fn load_module(directory: &Path, report: &mut WorkspaceReport) {
     });
 }
 
-/// A contract crate may be absent (a test checkout), but when present it must stay below modules.
-fn check_contract_crate(directory: &Path, name: &str, report: &mut WorkspaceReport) {
+/// A contract or library crate may be absent (a test checkout), but when present it must stay
+/// below modules.
+fn check_shared_crate(
+    directory: &Path,
+    name: &str,
+    allowed: &[&str],
+    report: &mut WorkspaceReport,
+) {
     if !directory.is_dir() {
         return;
     }
     match fs::read_to_string(directory.join("Cargo.toml")) {
         Ok(text) => report
             .problems
-            .extend(check_dependencies(name, &text, CONTRACT_DEPENDENCIES)),
+            .extend(check_dependencies(name, &text, allowed)),
         Err(error) => report.problems.push(Problem::new(
             name,
             format!("cannot read Cargo.toml: {error}"),

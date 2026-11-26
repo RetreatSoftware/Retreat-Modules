@@ -161,12 +161,7 @@ fn looking_up_lowers_the_camera() {
         yaw: 0.0,
         pitch: 0.5,
     };
-    let points = shoulder_points(
-        Vec3::new(0.0, 0.9, 0.0),
-        look,
-        1.0,
-        &ShoulderConfig::default(),
-    );
+    let points = shoulder_points(Vec3::ZERO, look, 1.0, &ShoulderConfig::default());
     assert_eq!(points.pivot, Vec3::new(0.0, 1.5, 0.0));
     assert!(points.camera.y < points.pivot.y);
     assert!(points.camera.z > 0.0);

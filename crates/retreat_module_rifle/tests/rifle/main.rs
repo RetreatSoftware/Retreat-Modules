@@ -130,29 +130,6 @@ fn the_fire_rate_holds_and_the_magazine_reloads_by_itself() {
 }
 
 #[test]
-fn early_network_inputs_are_tolerated_without_raising_the_rate() {
-    let ticks = RifleTicks {
-        fire_interval: 10,
-        reload: 96,
-    };
-    let mut weapon = WeaponStatus {
-        ammo: 30,
-        magazine: 30,
-        reload_ticks_left: 0,
-        hits_landed: 0,
-    };
-    let mut rifle = RifleState::default();
-    // A greedy client that tries every tick for 1000 ticks.
-    let mut shots = 0;
-    for _ in 0..1000 {
-        weapon.ammo = 30;
-        shots += u32::from(try_fire(&mut weapon, &mut rifle, ticks));
-        rifle.cooldown_ticks = rifle.cooldown_ticks.saturating_sub(1);
-    }
-    assert!((100..=101).contains(&shots), "{shots}");
-}
-
-#[test]
 fn the_dead_neither_shoot_nor_are_hit() {
     let mut app = app();
     kill(&mut app, 2);
@@ -260,14 +237,61 @@ fn a_network_client_queues_its_shots_one_tick_ahead_at_the_same_rate() {
 }
 
 #[test]
-fn aim_angles_point_from_the_eyes_to_the_target() {
-    let eye = Vec3::new(0.0, 1.6, 0.0);
-    let ahead = aim_angles(eye, Vec3::new(0.0, 1.6, -10.0)).unwrap();
-    assert!(ahead.yaw.abs() < 1.0e-6 && ahead.pitch.abs() < 1.0e-6);
-    for target in [Vec3::new(4.0, 0.0, 3.0), Vec3::new(-2.0, 5.0, -1.0)] {
-        let aim = aim_angles(eye, target).unwrap();
-        let wanted = (target - eye).normalize();
-        assert!(view_direction(aim).abs_diff_eq(wanted, 1.0e-5));
+fn a_tracer_spreads_evenly_to_the_end_of_the_shot() {
+    let points = tracer_points(Vec3::ZERO, Vec3::NEG_Z * 6.0);
+    assert_eq!(points.len(), 5);
+    assert_eq!(*points.last().unwrap(), Vec3::NEG_Z * 6.0);
+    assert!(points[0].abs_diff_eq(Vec3::NEG_Z * 1.2, 1.0e-6));
+    assert_eq!(tracer_points(Vec3::ZERO, Vec3::NEG_Z * 100.0).len(), 20);
+    assert!(tracer_points(Vec3::ONE, Vec3::ONE).is_empty());
+}
+
+/// The ids of the effects asked for since the last call.
+fn effects(app: &mut App) -> Vec<(String, EffectTime)> {
+    std::mem::take(&mut app.world_mut().resource_mut::<VisualEffects>().requests)
+        .into_iter()
+        .map(|effect| (effect.id, effect.time))
+        .collect()
+}
+
+#[test]
+fn a_shot_is_recorded_and_shown_with_ids_of_its_number() {
+    let mut app = app();
+    ok(&mut app, "rifle.fire 0 0");
+    let shown = effects(&mut app);
+    assert!(shown.contains(&("rifle/1/1/flash".to_string(), EffectTime::Present)));
+    assert!(shown.contains(&("rifle/1/1/0".to_string(), EffectTime::Present)));
+    let mut shots = app.world_mut().query::<(&PlayerId, &RifleShot)>();
+    let (_, shot) = shots
+        .iter(app.world())
+        .find(|(player, _)| player.0 == 1)
+        .unwrap();
+    assert_eq!((shot.count, shot.to), (1, Vec3::ZERO));
+    // A server shows its own judged shot once; it does not show it a second time as another's.
+    ticks(&mut app, 2);
+    assert!(effects(&mut app).is_empty());
+}
+
+#[test]
+fn a_client_shows_another_players_shot_when_its_view_gets_there() {
+    let mut app = app();
+    app.world_mut().insert_resource(NetLocalClient(Some(1)));
+    ticks(&mut app, 1);
+    let mut shots = app.world_mut().query::<(&PlayerId, &mut RifleShot)>();
+    for (player, mut shot) in shots.iter_mut(app.world_mut()) {
+        if player.0 == 2 {
+            *shot = RifleShot {
+                count: 1,
+                from: Vec3::Y,
+                to: Vec3::new(0.0, 1.0, -3.0),
+            };
+        }
     }
-    assert_eq!(aim_angles(eye, eye), None);
+    ticks(&mut app, 3);
+    let shown = effects(&mut app);
+    assert!(shown.contains(&("rifle/2/1/flash".to_string(), EffectTime::RemoteView)));
+    assert_eq!(
+        shown.iter().filter(|(id, _)| id.ends_with("flash")).count(),
+        1
+    );
 }

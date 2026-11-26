@@ -1,15 +1,15 @@
 //! The rifle's rolled-back and replicated state, and the systems that advance it.
 
 use crate::config::RifleConfig;
-use crate::rules::{RifleTicks, try_reload};
 use bevy::prelude::*;
 use retreat_engine_api::{NetState, RetiredEntity};
 use retreat_gameplay_api::{
-    DamageApplied, DamageCause, Health, PlayerId, PlayerRespawned, WeaponStatus,
+    DamageApplied, DamageCause, Health, PlayerId, PlayerRespawned, WeaponKind, Weapons,
 };
+use retreat_weapon_kit::{WeaponTicks, advance_weapon, equip, loaded};
 use serde::{Deserialize, Serialize};
 
-/// What only the rifle needs to know; ammo and reload are in the contract's `WeaponStatus`.
+/// What only the rifle needs to know; ammo and reload are in the contract's `Weapons`.
 #[derive(Component, Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RifleState {
     /// Ticks until the next shot.
@@ -20,76 +20,90 @@ impl NetState for RifleState {
     const ID: &'static str = "rifle.state";
 }
 
+/// The player's last shot, so that every machine can show it.
+#[derive(Component, Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+pub struct RifleShot {
+    /// Shots fired since the player appeared; a rise is a new shot.
+    pub count: u32,
+    /// The eyes it left from.
+    pub from: Vec3,
+    /// What it hit, or the end of its range.
+    pub to: Vec3,
+}
+
+impl NetState for RifleShot {
+    const ID: &'static str = "rifle.shot";
+}
+
+pub(crate) fn ticks_of(config: &RifleConfig, time: &Time<Fixed>) -> WeaponTicks {
+    WeaponTicks::of(
+        config.fire_interval_seconds,
+        config.reload_seconds,
+        time.timestep(),
+    )
+}
+
 type Unarmed = (With<PlayerId>, Without<RifleState>, Without<RetiredEntity>);
 
 /// Every player gets a loaded rifle.
-pub(crate) fn attach_weapons(
+pub(crate) fn attach_rifles(
     players: Query<Entity, Unarmed>,
     config: Res<RifleConfig>,
     mut commands: Commands,
 ) {
     for entity in &players {
-        commands.entity(entity).insert((
-            RifleState::default(),
-            WeaponStatus {
-                ammo: config.magazine,
-                magazine: config.magazine,
-                reload_ticks_left: 0,
-                hits_landed: 0,
-            },
-        ));
+        commands
+            .entity(entity)
+            .insert((RifleState::default(), RifleShot::default()));
+        equip(
+            &mut commands,
+            entity,
+            loaded(WeaponKind::Rifle, config.magazine),
+        );
     }
 }
 
-type Armed<'w, 's> = Query<
-    'w,
-    's,
-    (
-        &'static PlayerId,
-        &'static mut WeaponStatus,
-        &'static mut RifleState,
-        Option<&'static Health>,
-    ),
-    Without<RetiredEntity>,
->;
-
-/// One tick of cooldown and reload; an empty magazine starts to reload by itself.
-pub(crate) fn advance_timers(mut players: Armed, config: Res<RifleConfig>, time: Res<Time<Fixed>>) {
-    let ticks = RifleTicks::of(&config, time.timestep());
-    for (_, mut weapon, mut rifle, health) in &mut players {
-        if rifle.cooldown_ticks > 0 {
-            rifle.cooldown_ticks -= 1;
-        }
-        if weapon.reload_ticks_left > 0 {
-            weapon.reload_ticks_left -= 1;
-            if weapon.reload_ticks_left == 0 {
-                weapon.ammo = weapon.magazine;
-            }
-        } else if weapon.ammo == 0 && health.is_none_or(Health::is_alive) {
-            try_reload(&mut weapon, ticks);
+/// One tick of cooldown and reload.
+pub(crate) fn advance_timers(
+    mut players: Query<(&mut Weapons, &mut RifleState, Option<&Health>), Without<RetiredEntity>>,
+    config: Res<RifleConfig>,
+    time: Res<Time<Fixed>>,
+) {
+    let ticks = ticks_of(&config, &time);
+    for (mut weapons, mut rifle, health) in &mut players {
+        let Some(mut weapon) = weapons.of(WeaponKind::Rifle).copied() else {
+            continue;
+        };
+        let mut next = *rifle;
+        let alive = health.is_none_or(Health::is_alive);
+        advance_weapon(&mut weapon, &mut next.cooldown_ticks, ticks, alive);
+        rifle.set_if_neq(next);
+        if weapons.of(WeaponKind::Rifle) != Some(&weapon) {
+            weapons.put(weapon);
         }
     }
 }
 
 /// Counts the shots that really hurt someone.
-pub(crate) fn count_hits(mut damage: MessageReader<DamageApplied>, mut players: Armed) {
-    for applied in damage.read() {
-        if applied.cause != DamageCause::Hitscan || applied.amount == 0 {
-            continue;
-        }
-        for (player, mut weapon, ..) in &mut players {
-            if applied.attacker == Some(*player) && applied.target != *player {
-                weapon.hits_landed += 1;
-            }
-        }
-    }
+pub(crate) fn count_hits(
+    mut damage: MessageReader<DamageApplied>,
+    mut players: Query<(&PlayerId, &mut Weapons), Without<RetiredEntity>>,
+) {
+    retreat_weapon_kit::count_hits(&mut damage, &mut players, WeaponKind::Rifle, |applied| {
+        applied.cause == DamageCause::Hitscan
+    });
 }
 
 /// A new life starts with a full magazine.
-pub(crate) fn refill_respawned(mut respawned: MessageReader<PlayerRespawned>, mut players: Armed) {
+pub(crate) fn refill_respawned(
+    mut respawned: MessageReader<PlayerRespawned>,
+    mut players: Query<(&PlayerId, &mut Weapons, &mut RifleState), Without<RetiredEntity>>,
+) {
     for message in respawned.read() {
-        for (player, mut weapon, mut rifle, _) in &mut players {
-            if *player == message.player {
+        for (player, mut weapons, mut rifle) in &mut players {
+            if *player == message.player
+                && let Some(weapon) = weapons.of_mut(WeaponKind::Rifle)
+            {
                 weapon.ammo = weapon.magazine;
                 weapon.reload_ticks_left = 0;
                 rifle.cooldown_ticks = 0;

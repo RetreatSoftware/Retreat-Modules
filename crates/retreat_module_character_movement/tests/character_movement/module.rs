@@ -24,7 +24,10 @@ fn character(app: &mut App, id: u32) -> Entity {
         .spawn((
             Name::new(player_entity_name(PlayerId(id))),
             PlayerId(id),
-            PhysicsBody::character(CHARACTER_CAPSULE_HALF_HEIGHT, CHARACTER_RADIUS),
+            PhysicsBody::character(
+                CharacterSize::default().capsule_half_height(),
+                CharacterSize::default().radius,
+            ),
             // As the engine would report on flat ground.
             CharacterGround {
                 grounded: true,

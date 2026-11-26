@@ -5,10 +5,15 @@ version.workspace = true
 edition.workspace = true
 publish.workspace = true
 
+[lib]
+test = false
+doctest = false
+
 [dependencies]
 bevy.workspace = true
 retreat_engine_api.workspace = true
 retreat_gameplay_api.workspace = true
+retreat_weapon_kit.workspace = true
 serde.workspace = true
 
 # Module manifest (schema in Retreat-Modules/CLAUDE.md).

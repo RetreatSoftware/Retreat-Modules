@@ -1,7 +1,6 @@
 //! The module's numbers.
 
 use bevy::prelude::*;
-use retreat_gameplay_api::CHARACTER_HEIGHT;
 
 /// A game changes these by inserting the resource before adding the plugin.
 #[derive(Resource, Debug, Clone, PartialEq)]
@@ -51,10 +50,8 @@ impl ShoulderConfig {
                 return Err(format!("{field} must be more than 0, got {value}"));
             }
         }
-        if !(0.0..=CHARACTER_HEIGHT).contains(&self.pivot_height) {
-            return Err(format!(
-                "pivot_height must be within the character (0 to {CHARACTER_HEIGHT})"
-            ));
+        if !(self.pivot_height.is_finite() && self.pivot_height >= 0.0) {
+            return Err("pivot_height must be 0 or more".to_string());
         }
         if !(self.shoulder_offset.is_finite() && self.shoulder_offset >= 0.0) {
             return Err("shoulder_offset must be 0 or more".to_string());

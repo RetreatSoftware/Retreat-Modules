@@ -8,7 +8,7 @@ use retreat_engine_api::{
     PhysicsVelocity, RemoteInterpolation, RenderSmoothing, RetiredEntity,
 };
 use retreat_gameplay_api::{
-    CHARACTER_HEIGHT, Health, LookAngles, PlayerId, SoloPlayer, local_player_id,
+    CharacterSize, Health, LookAngles, PlayerId, SoloPlayer, local_player_id,
 };
 
 /// What this machine shows a player doing. Not shared state: every machine derives its own.
@@ -47,6 +47,7 @@ pub(crate) fn dress_players(
     config: Res<CharacterVisualsConfig>,
     client: Res<NetLocalClient>,
     solo: Res<SoloPlayer>,
+    size: Res<CharacterSize>,
     mut commands: Commands,
 ) {
     let local = local_player_id(*client, *solo);
@@ -64,7 +65,7 @@ pub(crate) fn dress_players(
                 facing_of(velocity, before, &config)
             },
         };
-        let wanted = visual_for(&config, now, velocity);
+        let wanted = visual_for(&config, *size, now, velocity);
         let wanted_color = EntityColor(config.colors[player.0 as usize % config.colors.len()]);
         let mut entity = commands.entity(entity);
         if motion != Some(&now) {
@@ -101,6 +102,7 @@ pub(crate) fn dress_players(
 
 fn visual_for(
     config: &CharacterVisualsConfig,
+    size: CharacterSize,
     motion: VisualMotion,
     velocity: Vec3,
 ) -> CharacterVisual {
@@ -113,7 +115,7 @@ fn visual_for(
             model: Some(model.path.clone()),
             scale: model.scale,
             // The entity is the middle of the character; the model stands on its feet.
-            offset: Vec3::NEG_Y * (CHARACTER_HEIGHT / 2.0),
+            offset: Vec3::NEG_Y * (size.height / 2.0),
             yaw: motion.facing + model.yaw,
             clips: clips_for(model, motion.doing, velocity),
         },

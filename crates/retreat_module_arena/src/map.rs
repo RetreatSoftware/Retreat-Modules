@@ -1,7 +1,7 @@
 //! What a map is, and the pure rules a map must satisfy.
 
 use bevy::prelude::*;
-use retreat_gameplay_api::{CHARACTER_HEIGHT, CHARACTER_RADIUS, MAX_PLAYERS, SpawnPoint};
+use retreat_gameplay_api::{CharacterSize, MAX_PLAYERS, SpawnPoint};
 
 /// Surfaces closer than this are touching, not overlapping (metres).
 const TOUCH_TOLERANCE: f32 = 1.0e-3;
@@ -54,8 +54,10 @@ pub fn spawn_point_problem(map: &ArenaMap, spawn: &SpawnPoint) -> Option<String>
         return Some("position and yaw must be finite numbers".to_string());
     }
     let feet = spawn.feet;
-    let min = feet - Vec3::new(CHARACTER_RADIUS, 0.0, CHARACTER_RADIUS);
-    let max = feet + Vec3::new(CHARACTER_RADIUS, CHARACTER_HEIGHT, CHARACTER_RADIUS);
+    // Maps are made for the default (human) size; a smaller character fits wherever it does.
+    let size = CharacterSize::default();
+    let min = feet - Vec3::new(size.radius, 0.0, size.radius);
+    let max = feet + Vec3::new(size.radius, size.height, size.radius);
     let limit = map.half_extent + TOUCH_TOLERANCE;
     if min.x < -limit || min.z < -limit || max.x > limit || max.z > limit {
         return Some("is outside the arena".to_string());
@@ -100,7 +102,7 @@ pub fn validate_map(map: &ArenaMap) -> Vec<String> {
         }
         let too_close = map.spawn_points[..index]
             .iter()
-            .any(|other| other.feet.distance(spawn.feet) < 2.0 * CHARACTER_RADIUS);
+            .any(|other| other.feet.distance(spawn.feet) < 2.0 * CharacterSize::default().radius);
         if too_close {
             problems.push(format!("spawn point {index} overlaps an earlier one"));
         }

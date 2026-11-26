@@ -1,6 +1,6 @@
 # combat_hud (step 3 part built)
 
-Built: crosshair, health, ammo, hit marker, respawn countdown
+Built: crosshair, health, every carried weapon with its ammo, hit marker, respawn countdown
 (`crates/retreat_module_combat_hud/src/lib.rs`; numbers `CombatHudConfig::default()`). Command:
 `assert.hud_shown`; text with the engine's `assert.ui_text`.
 

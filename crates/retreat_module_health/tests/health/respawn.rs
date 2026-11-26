@@ -60,7 +60,7 @@ fn without_a_map_players_respawn_where_they_are() {
     assert_eq!(position(&mut app, 1), before);
     assert_eq!(
         drain::<PlayerRespawned>(&mut app)[0].spawn.feet,
-        character_feet(before)
+        CharacterSize::default().feet(before)
     );
 }
 

@@ -9,6 +9,7 @@ use std::time::Duration;
 
 fn weapon(ammo: u32) -> WeaponStatus {
     WeaponStatus {
+        kind: WeaponKind::Rifle,
         ammo,
         magazine: 30,
         reload_ticks_left: 0,
@@ -16,10 +17,18 @@ fn weapon(ammo: u32) -> WeaponStatus {
     }
 }
 
+fn carrying(list: impl IntoIterator<Item = WeaponStatus>) -> Weapons {
+    let mut weapons = Weapons::default();
+    for status in list {
+        weapons.put(status);
+    }
+    weapons
+}
+
 fn input() -> HudInput {
     HudInput {
         health: Some(Health::full(100)),
-        weapon: Some(weapon(12)),
+        weapons: Some(carrying([weapon(12)])),
         respawn: None,
         hit: false,
         timestep: Duration::from_secs_f64(1.0 / 64.0),
@@ -30,16 +39,16 @@ fn input() -> HudInput {
 fn a_living_armed_player_sees_crosshair_ammo_and_health() {
     let view = hud_view(input());
     assert!(view.crosshair && !view.hit && view.respawn.is_none());
-    assert_eq!(view.ammo.as_deref(), Some("Ammo 12/30"));
+    assert_eq!(view.ammo, [(WeaponKind::Rifle, "Rifle 12/30".to_string())]);
     assert_eq!(view.health.as_deref(), Some("Health 100"));
     let reloading = hud_view(HudInput {
-        weapon: Some(WeaponStatus {
+        weapons: Some(carrying([WeaponStatus {
             reload_ticks_left: 5,
             ..weapon(0)
-        }),
+        }])),
         ..input()
     });
-    assert_eq!(reloading.ammo.as_deref(), Some("Reloading"));
+    assert_eq!(reloading.ammo[0].1, "Rifle reloading");
 }
 
 #[test]
@@ -54,20 +63,47 @@ fn the_dead_see_the_countdown_instead_of_the_weapon() {
         })
     };
     let view = seconds(192);
-    assert!(!view.crosshair && view.ammo.is_none());
+    assert!(!view.crosshair && view.ammo.is_empty());
     assert_eq!(view.respawn.as_deref(), Some("Respawn in 3"));
     assert_eq!(seconds(129).respawn.as_deref(), Some("Respawn in 3"));
     assert_eq!(seconds(1).respawn.as_deref(), Some("Respawn in 1"));
 }
 
 #[test]
+fn every_carried_weapon_is_listed_with_its_ammo() {
+    let rockets = WeaponStatus {
+        kind: WeaponKind::Launcher,
+        magazine: 4,
+        ..weapon(3)
+    };
+    let view = hud_view(HudInput {
+        weapons: Some(carrying([rockets, weapon(12)])),
+        ..input()
+    });
+    let lines = |view: &HudView| -> Vec<String> {
+        view.ammo.iter().map(|(_, text)| text.clone()).collect()
+    };
+    assert_eq!(lines(&view), ["Rifle 12/30", "Rockets 3/4"]);
+    let only_rockets = hud_view(HudInput {
+        weapons: Some(carrying([rockets])),
+        ..input()
+    });
+    assert_eq!(lines(&only_rockets), ["Rockets 3/4"]);
+    let none = hud_view(HudInput {
+        weapons: Some(Weapons::default()),
+        ..input()
+    });
+    assert!(!none.crosshair && none.ammo.is_empty());
+}
+
+#[test]
 fn each_element_needs_its_module() {
     let unarmed = hud_view(HudInput {
-        weapon: None,
+        weapons: None,
         hit: true,
         ..input()
     });
-    assert!(!unarmed.crosshair && !unarmed.hit && unarmed.ammo.is_none());
+    assert!(!unarmed.crosshair && !unarmed.hit && unarmed.ammo.is_empty());
     assert!(unarmed.health.is_some());
     let no_health = hud_view(HudInput {
         health: None,
@@ -85,7 +121,7 @@ fn the_widgets_follow_the_local_player_and_the_hit_marker_ends() {
         .add_plugins(CombatHudModulePlugin);
     let player = app
         .world_mut()
-        .spawn((PlayerId(0), Health::full(100), weapon(30)))
+        .spawn((PlayerId(0), Health::full(100), carrying([weapon(30)])))
         .id();
     let frame = |app: &mut App| {
         app.world_mut().run_schedule(FixedUpdate);
@@ -102,11 +138,10 @@ fn the_widgets_follow_the_local_player_and_the_hit_marker_ends() {
     frame(&mut app);
     shown(&mut app, HEALTH_WIDGET, true);
     shown(&mut app, CROSSHAIR_WIDGET, true);
+    shown(&mut app, ammo_widget(WeaponKind::Rifle), true);
+    shown(&mut app, ammo_widget(WeaponKind::Launcher), false);
     shown(&mut app, HIT_WIDGET, false);
-    app.world_mut()
-        .get_mut::<WeaponStatus>(player)
-        .unwrap()
-        .hits_landed = 1;
+    hit(&mut app, player, 1);
     frame(&mut app);
     shown(&mut app, HIT_WIDGET, true);
     for _ in 0..20 {
@@ -114,10 +149,7 @@ fn the_widgets_follow_the_local_player_and_the_hit_marker_ends() {
     }
     shown(&mut app, HIT_WIDGET, false);
     // A slow frame runs more ticks than the marker lasts: it is still drawn once.
-    app.world_mut()
-        .get_mut::<WeaponStatus>(player)
-        .unwrap()
-        .hits_landed = 2;
+    hit(&mut app, player, 2);
     for _ in 0..40 {
         app.world_mut().run_schedule(FixedUpdate);
     }
@@ -125,4 +157,9 @@ fn the_widgets_follow_the_local_player_and_the_hit_marker_ends() {
     shown(&mut app, HIT_WIDGET, true);
     frame(&mut app);
     shown(&mut app, HIT_WIDGET, false);
+}
+
+fn hit(app: &mut App, player: Entity, hits: u32) {
+    let mut weapons = app.world_mut().get_mut::<Weapons>(player).unwrap();
+    weapons.of_mut(WeaponKind::Rifle).unwrap().hits_landed = hits;
 }

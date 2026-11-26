@@ -9,6 +9,7 @@ pub const MODULE_DEPENDENCIES: &[&str] = &[
     "retreat_engine_api",
     "retreat_gameplay_api",
     "retreat_rng",
+    "retreat_weapon_kit",
     "serde",
 ];
 
@@ -17,6 +18,12 @@ pub const CONTRACT_DEPENDENCIES: &[&str] = &["bevy", "retreat_engine_api", "serd
 
 /// The contract crates of this repository (`crates/<name>`).
 pub const CONTRACT_CRATES: &[&str] = &["retreat_gameplay_api"];
+
+/// Everything a shared library crate may depend on.
+pub const LIBRARY_DEPENDENCIES: &[&str] = &["bevy", "retreat_engine_api", "retreat_gameplay_api"];
+
+/// The libraries modules share code through (`crates/<name>`): not modules, they register nothing.
+pub const LIBRARY_CRATES: &[&str] = &["retreat_weapon_kit"];
 
 const DEPENDENCY_TABLES: [&str; 3] = ["dependencies", "dev-dependencies", "build-dependencies"];
 

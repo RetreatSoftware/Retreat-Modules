@@ -2,11 +2,12 @@
 
 use crate::config::CombatHudConfig;
 use crate::view::{HudInput, hud_view};
-use crate::{AMMO_WIDGET, CROSSHAIR_WIDGET, HEALTH_WIDGET, HIT_WIDGET, RESPAWN_WIDGET};
+use crate::{CROSSHAIR_WIDGET, HEALTH_WIDGET, HIT_WIDGET, RESPAWN_WIDGET, ammo_widget};
 use bevy::prelude::*;
 use retreat_engine_api::{NetLocalClient, NetReplaying, RetiredEntity, UiHud};
 use retreat_gameplay_api::{
-    Health, PlayerId, RespawnTimer, SoloPlayer, WeaponStatus, local_player_id, ticks_from_seconds,
+    Health, PlayerId, RespawnTimer, SoloPlayer, WeaponKind, Weapons, local_player_id,
+    ticks_from_seconds,
 };
 
 /// This machine's running hit marker. Not shared state.
@@ -22,7 +23,7 @@ pub(crate) struct HitMarker {
 
 /// Starts the marker when the server counts a new hit. In ticks, so a script sees the same thing.
 pub(crate) fn time_hit_marker(
-    players: Query<(&PlayerId, &WeaponStatus), Without<RetiredEntity>>,
+    players: Query<(&PlayerId, &Weapons), Without<RetiredEntity>>,
     client: Res<NetLocalClient>,
     solo: Res<SoloPlayer>,
     replaying: Res<NetReplaying>,
@@ -37,7 +38,7 @@ pub(crate) fn time_hit_marker(
     let hits = players
         .iter()
         .find(|(player, _)| Some(**player) == local)
-        .map(|(_, weapon)| weapon.hits_landed);
+        .map(|(_, weapons)| weapons.iter().map(|weapon| weapon.hits_landed).sum::<u32>());
     marker.ticks_left = marker.ticks_left.saturating_sub(1);
     if let (Some(before), Some(now)) = (marker.seen, hits)
         && now > before
@@ -54,7 +55,7 @@ type Players<'w, 's> = Query<
     (
         &'static PlayerId,
         Option<&'static Health>,
-        Option<&'static WeaponStatus>,
+        Option<&'static Weapons>,
         Option<&'static RespawnTimer>,
     ),
     Without<RetiredEntity>,
@@ -72,22 +73,27 @@ pub(crate) fn show_hud(
     let local = local_player_id(*client, *solo);
     let own = players.iter().find(|(player, ..)| Some(**player) == local);
     let view = hud_view(
-        own.map_or_else(HudInput::default, |(_, health, weapon, respawn)| HudInput {
-            health: health.copied(),
-            weapon: weapon.copied(),
-            respawn: respawn.copied(),
-            hit: marker.ticks_left > 0 || marker.unshown,
-            timestep: time.timestep(),
+        own.map_or_else(HudInput::default, |(_, health, weapons, respawn)| {
+            HudInput {
+                health: health.copied(),
+                weapons: weapons.cloned(),
+                respawn: respawn.copied(),
+                hit: marker.ticks_left > 0 || marker.unshown,
+                timestep: time.timestep(),
+            }
         }),
     );
     marker.unshown = false;
+    let ammo = WeaponKind::ALL.map(|kind| {
+        let line = view.ammo.iter().find(|(found, _)| *found == kind);
+        (ammo_widget(kind), line.map(|(_, text)| text.clone()))
+    });
     let texts = [
-        (AMMO_WIDGET, view.ammo),
         (HIT_WIDGET, view.hit.then(|| config.hit_marker_text.clone())),
         (HEALTH_WIDGET, view.health),
         (RESPAWN_WIDGET, view.respawn),
     ];
-    for (id, text) in texts {
+    for (id, text) in texts.into_iter().chain(ammo) {
         show(&mut hud, id, text.is_some());
         if let Some(text) = text
             && !hud.has_text(id, &text)

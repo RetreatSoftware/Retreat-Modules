@@ -4,7 +4,8 @@
 //! - Every `PlayerId` entity gets `Health` and spawn protection. Firing (`PlayerFired`) ends the
 //!   protection at once.
 //! - `DamageRequested` removes hit points unless the target is dead or protected, or the match is
-//!   finished. The last point sends `PlayerDied` and starts the respawn timer.
+//!   finished. The last point sends `PlayerDied`, starts the respawn timer and makes the body
+//!   `Intangible` (walked through, ignored by casts) until the respawn.
 //! - After the delay, and for everyone on `MatchRestarted`, a player has full health again and
 //!   `PlayerRespawned` names the spawn point: the one farthest from the nearest living player.
 //!   Without spawn points (no map) the player respawns where it is.
