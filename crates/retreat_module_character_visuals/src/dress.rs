@@ -54,9 +54,15 @@ pub(crate) fn dress_players(
         let (smoothed, remote, flat, hidden) = marks;
         let velocity = velocity.map_or(Vec3::ZERO, |velocity| velocity.linear);
         let before = motion.map_or_else(|| look.map_or(0.0, |look| look.yaw), |m| m.facing);
+        let other = local.is_some_and(|local| local != *player);
         let now = VisualMotion {
             doing: locomotion_of(velocity, ground.map(|g| g.grounded), &config),
-            facing: facing_of(velocity, before, &config),
+            // Another player turns with its drawn movement (`remote_facing`).
+            facing: if other {
+                before
+            } else {
+                facing_of(velocity, before, &config)
+            },
         };
         let wanted = visual_for(&config, now, velocity);
         let wanted_color = EntityColor(config.colors[player.0 as usize % config.colors.len()]);
@@ -85,7 +91,6 @@ pub(crate) fn dress_players(
         if local.is_some() && !smoothed {
             entity.insert(config.smoothing);
         }
-        let other = local.is_some_and(|local| local != *player);
         if other && !remote {
             entity.insert(RemoteInterpolation);
         } else if !other && remote {

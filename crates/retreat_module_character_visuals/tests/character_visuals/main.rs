@@ -2,9 +2,11 @@
 //! players. The pictures are checked in the game (Retreat-Arena).
 
 use bevy::prelude::*;
+use bevy::time::TimeUpdateStrategy;
 use retreat_engine_api::*;
 use retreat_gameplay_api::*;
 use retreat_module_character_visuals::*;
+use std::time::Duration;
 
 fn clip(name: &str, matched_speed: Option<f32>) -> Clip {
     Clip {
@@ -149,6 +151,39 @@ fn others_are_drawn_from_the_server_and_a_server_smooths_nobody() {
     assert!(smoothed(&app, first) && smoothed(&app, second));
     assert!(remote(&app, first));
     assert!(!remote(&app, second), "the own character is predicted");
+}
+
+#[test]
+fn another_player_faces_along_its_drawn_movement_not_its_present_velocity() {
+    let mut app = with_fox();
+    app.insert_resource(NetLocalClient(Some(1)))
+        .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_millis(
+            100,
+        )));
+    // Predicted present: already running along +X. Drawn past: still moving along -Z.
+    let other = player(&mut app, 0, Vec3::X * 9.0, true);
+    app.update();
+    for step in 1..4 {
+        app.world_mut()
+            .get_mut::<DrawnPose>(other)
+            .unwrap()
+            .translation = Vec3::NEG_Z * (0.5 * step as f32);
+        app.update();
+    }
+    ok(&mut app, "assert.visuals_facing 0 0 0.01");
+    let visual = app.world().get::<CharacterVisual>(other).unwrap();
+    assert_eq!(visual.yaw, std::f32::consts::PI);
+}
+
+#[test]
+fn drawn_movement_turns_a_character_except_when_still_or_teleported() {
+    let config = CharacterVisualsConfig::default();
+    let facing =
+        |to: Vec3, seconds| facing_of_drawn_movement(Vec3::ZERO, to, seconds, 9.0, &config);
+    assert_eq!(facing(Vec3::NEG_Z * 0.1, 0.02), 0.0);
+    assert_eq!(facing(Vec3::NEG_Z * 0.001, 0.02), 9.0);
+    assert_eq!(facing(Vec3::NEG_Z * 20.0, 0.02), 9.0);
+    assert_eq!(facing(Vec3::NEG_Z * 0.1, 0.0), 9.0);
 }
 
 #[test]

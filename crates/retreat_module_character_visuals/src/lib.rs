@@ -4,7 +4,8 @@
 //!
 //! For every player, each frame:
 //! - [`CharacterVisual`]: the configured model (or the engine's plain shape), turned to where the
-//!   character moves (it keeps that facing when it stops; before it ever moved, where it looks),
+//!   character moves (it keeps that facing when it stops; before it ever moved, where it looks;
+//!   another player's facing follows its drawn movement, [`facing_of_drawn_movement`]),
 //!   playing the clip for what it does ([`locomotion_of`]: idle, walk, run, air);
 //! - [`EntityColor`]: one color per player id (replacing the texture with `flat_colors`);
 //! - `HideVisuals` while its `Health` is 0;
@@ -18,14 +19,16 @@ mod commands;
 mod config;
 mod dress;
 mod locomotion;
+mod remote_facing;
 
 use bevy::prelude::*;
-use retreat_engine_api::AppCommandExt;
+use retreat_engine_api::{AppCommandExt, DrawnPoseSystems};
 use retreat_gameplay_api::add_gameplay_contract;
 
 pub use config::{CharacterModel, CharacterVisualsConfig, Clip};
 pub use dress::VisualMotion;
 pub use locomotion::{Locomotion, clips_for, facing_of, locomotion_of};
+pub use remote_facing::facing_of_drawn_movement;
 
 /// Adds the looks. Insert a [`CharacterVisualsConfig`] first to choose a model and colors.
 pub struct CharacterVisualsModulePlugin;
@@ -58,6 +61,10 @@ impl Plugin for CharacterVisualsModulePlugin {
             commands::assert_hidden_command,
         )
         // After the fixed ticks of the frame and before the engine draws (`Update`).
-        .add_systems(PreUpdate, dress::dress_players);
+        .add_systems(PreUpdate, dress::dress_players)
+        .add_systems(
+            Update,
+            remote_facing::face_remote_players.after(DrawnPoseSystems),
+        );
     }
 }

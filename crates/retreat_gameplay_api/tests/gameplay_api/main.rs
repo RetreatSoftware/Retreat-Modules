@@ -111,6 +111,9 @@ fn the_contract_registers_the_shared_net_state() {
     assert_eq!(
         ids,
         [
+            // The contract's networking types bring the engine's own shared state.
+            "engine.intangible",
+            "engine.pose",
             "gameplay.health",
             "gameplay.look",
             "gameplay.match",
