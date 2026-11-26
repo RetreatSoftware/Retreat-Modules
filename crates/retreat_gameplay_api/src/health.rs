@@ -54,6 +54,17 @@ impl Health {
         }
     }
 
+    /// Restores up to `amount` hit points of the living; returns how many came back. The dead stay
+    /// dead.
+    pub fn heal(&mut self, amount: u32) -> u32 {
+        if !self.is_alive() {
+            return 0;
+        }
+        let healed = amount.min(self.max - self.current);
+        self.current += healed;
+        healed
+    }
+
     /// Back to full health (respawn, match restart).
     pub fn restore(&mut self) {
         self.current = self.max;

@@ -7,7 +7,8 @@ use retreat_engine_api::{
     CommandArgs, CommandOutcome, CommandResult, NetPose, RetiredEntity, spawn_predicted,
 };
 use retreat_gameplay_api::{
-    CharacterSize, LookAngles, PlayerFired, WeaponKind, Weapons, view_direction,
+    AmmoSource, CharacterSize, Inventory, ItemCatalog, LookAngles, PlayerFired, WeaponKind,
+    Weapons, owns_weapon, view_direction,
 };
 use retreat_weapon_kit::{
     actor, assert_weapon, character_of, may_fight, refused, reload_weapon, try_fire,
@@ -31,6 +32,11 @@ pub(crate) fn fire_command(world: &mut World, args: &CommandArgs) -> CommandResu
         world.resource::<LauncherConfig>(),
         world.resource::<Time<Fixed>>(),
     );
+    let mut carried = world.get::<Inventory>(shooter).cloned();
+    let catalog = world.resource::<ItemCatalog>().clone();
+    if !owns_weapon(carried.as_ref(), &catalog, WeaponKind::Launcher) {
+        return refused(world, args, "the player does not carry this weapon");
+    }
     let mut query = world.query::<(&Transform, &mut Weapons, &mut LauncherState)>();
     let Ok((transform, mut weapons, mut launcher)) = query.get_mut(world, shooter) else {
         return refused(world, args, "the player has no launcher yet");
@@ -40,12 +46,20 @@ pub(crate) fn fire_command(world: &mut World, args: &CommandArgs) -> CommandResu
         return refused(world, args, "the player has no launcher yet");
     };
     let mut next = *launcher;
-    if !try_fire(&mut weapon, &mut next.cooldown_ticks, ticks) {
+    let mut source = AmmoSource {
+        inventory: carried.as_mut(),
+        catalog: &catalog,
+        weapon: WeaponKind::Launcher,
+    };
+    if !try_fire(&mut weapon, &mut next.cooldown_ticks, ticks, &mut source) {
         return refused(world, args, "the launcher is not ready");
     }
     weapons.put(weapon);
     next.shots += 1;
     launcher.set_if_neq(next);
+    if let Some(carried) = carried {
+        world.entity_mut(shooter).insert(carried);
+    }
     world.write_message(PlayerFired { player });
     let eye = world.resource::<CharacterSize>().eye(center);
     spawn_predicted(

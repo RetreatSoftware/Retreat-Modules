@@ -29,6 +29,8 @@ fn input() -> HudInput {
     HudInput {
         health: Some(Health::full(100)),
         weapons: Some(carrying([weapon(12)])),
+        inventory: None,
+        catalog: ItemCatalog::default(),
         respawn: None,
         hit: false,
         covered: false,
@@ -362,4 +364,41 @@ fn a_kill_is_in_the_killers_color_and_dark_colors_are_lightened() {
     assert_eq!(kill_line(&fell, &names()).player, Some(PlayerId(0)));
     let light = readable(Color::srgb(0.0, 0.0, 1.0)).to_srgba();
     assert!(light.red > 0.3 && light.green > 0.3 && light.blue == 1.0);
+}
+
+#[test]
+fn the_reserve_and_carried_items_show_only_what_the_player_has() {
+    let rounds = ItemDefinition::new("rounds", "Rounds", ItemKind::Ammo(WeaponKind::Rifle), 90);
+    let kit = ItemDefinition::new("kit", "Health kit", ItemKind::Heal(50), 3);
+    let launcher = ItemDefinition::new(
+        "launcher",
+        "Rocket launcher",
+        ItemKind::Weapon(WeaponKind::Launcher),
+        1,
+    );
+    let catalog = ItemCatalog(vec![rounds.clone(), kit.clone(), launcher]);
+    let mut inventory = Inventory::new(4);
+    inventory.add(&rounds, 45);
+    let rockets = WeaponStatus {
+        kind: WeaponKind::Launcher,
+        ..weapon(4)
+    };
+    let carrying_none = HudInput {
+        weapons: Some(carrying([weapon(12), rockets])),
+        inventory: Some(inventory.clone()),
+        catalog: catalog.clone(),
+        ..input()
+    };
+    let view = hud_view(carrying_none.clone());
+    assert_eq!(
+        view.ammo,
+        [(WeaponKind::Rifle, "Rifle 12/30 +45".to_string())]
+    );
+    assert!(view.items.is_empty());
+    inventory.add(&kit, 2);
+    let view = hud_view(HudInput {
+        inventory: Some(inventory),
+        ..carrying_none
+    });
+    assert_eq!(view.items, ["Health kit x2"]);
 }

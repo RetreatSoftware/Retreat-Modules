@@ -14,8 +14,8 @@ use retreat_engine_api::{
     UiHud,
 };
 use retreat_gameplay_api::{
-    Health, KillLog, MatchState, PlayerId, PlayerRoster, RespawnTimer, Scoreboard, SoloPlayer,
-    WeaponKind, Weapons, local_player_id, ticks_from_seconds,
+    Health, Inventory, ItemCatalog, KillLog, MatchState, PlayerId, PlayerRoster, RespawnTimer,
+    Scoreboard, SoloPlayer, WeaponKind, Weapons, local_player_id, ticks_from_seconds,
 };
 
 /// This machine's running hit marker. Not shared state.
@@ -91,6 +91,7 @@ type Players<'w, 's> = Query<
         Option<&'static Health>,
         Option<&'static Weapons>,
         Option<&'static RespawnTimer>,
+        Option<&'static Inventory>,
     ),
     Without<RetiredEntity>,
 >;
@@ -104,6 +105,7 @@ pub(crate) struct Sources<'w, 's> {
     client: Res<'w, NetLocalClient>,
     solo: Res<'w, SoloPlayer>,
     roster: Res<'w, PlayerRoster>,
+    catalog: Res<'w, ItemCatalog>,
     actions: Option<Res<'w, InputActions>>,
     switch: Res<'w, ScoreboardSwitch>,
     kills: Res<'w, ShownKills>,
@@ -136,18 +138,19 @@ pub(crate) fn show_hud(sources: Sources, mut marker: ResMut<HitMarker>, mut hud:
         },
         &sources.roster,
     );
-    let view = hud_view(
-        playing.map_or_else(HudInput::default, |(_, health, weapons, respawn)| {
-            HudInput {
-                health: health.copied(),
-                weapons: weapons.cloned(),
-                respawn: respawn.copied(),
-                hit: marker.ticks_left > 0 || marker.unshown,
-                covered: table.score_head.is_some(),
-                timestep: sources.time.timestep(),
-            }
-        }),
-    );
+    let view = hud_view(playing.map_or_else(
+        HudInput::default,
+        |(_, health, weapons, respawn, inventory)| HudInput {
+            health: health.copied(),
+            weapons: weapons.cloned(),
+            inventory: inventory.cloned(),
+            catalog: sources.catalog.clone(),
+            respawn: respawn.copied(),
+            hit: marker.ticks_left > 0 || marker.unshown,
+            covered: table.score_head.is_some(),
+            timestep: sources.time.timestep(),
+        },
+    ));
     marker.unshown = false;
     // Every text has the panel; a line about a player has the player's color.
     let panel = Some(sources.config.panel);
@@ -182,6 +185,9 @@ pub(crate) fn show_hud(sources: Sources, mut marker: ResMut<HitMarker>, mut hud:
         let line = view.ammo.iter().find(|(found, _)| *found == kind);
         (ammo_widget(kind), plain(line.map(|(_, text)| text.clone())))
     }));
+    let mut items = view.items.into_iter();
+    let item_lines = sources.lines.items.iter();
+    texts.extend(item_lines.map(|id| (*id, plain(items.next()))));
     let mut rows = table.score_rows.into_iter();
     let score_rows = sources.lines.score_rows.iter();
     texts.extend(score_rows.map(|id| (*id, colored(rows.next()))));

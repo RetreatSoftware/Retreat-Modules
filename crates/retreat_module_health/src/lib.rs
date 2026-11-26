@@ -3,6 +3,7 @@
 //!
 //! - Every `PlayerId` entity gets `Health` and spawn protection. Firing (`PlayerFired`) ends the
 //!   protection at once.
+//! - `HealRequested` (a used item) restores hit points of the living.
 //! - `DamageRequested` removes hit points unless the target is dead or protected, or the match is
 //!   finished. The last point sends `PlayerDied`, starts the respawn timer and makes the body
 //!   `Intangible` (walked through, ignored by casts) until the respawn.
@@ -80,6 +81,7 @@ impl Plugin for HealthModulePlugin {
                         respawn::advance_timers,
                         respawn::attach_health,
                         respawn::end_protection_on_fire,
+                        damage::apply_heals,
                         damage::request_fall_outs,
                         damage::apply_kills,
                         damage::apply_damage,

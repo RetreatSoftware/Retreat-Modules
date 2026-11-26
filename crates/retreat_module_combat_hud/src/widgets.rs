@@ -4,7 +4,7 @@
 use crate::config::CombatHudConfig;
 use bevy::prelude::*;
 use retreat_engine_api::{AppHudExt, HudAnchor, HudKind, HudWidget};
-use retreat_gameplay_api::{MAX_PLAYERS, WeaponKind};
+use retreat_gameplay_api::{ItemCatalog, ItemKind, MAX_PLAYERS, WeaponKind};
 
 pub const CROSSHAIR_WIDGET: &str = "hud_crosshair";
 pub const HIT_WIDGET: &str = "hud_hit";
@@ -29,6 +29,8 @@ pub struct HudLines {
     pub score_rows: Vec<&'static str>,
     /// `hud_kill0`..: one per line of the kill feed.
     pub kills: Vec<&'static str>,
+    /// `hud_item0`..: one per item of the catalog that is used from the inventory.
+    pub items: Vec<&'static str>,
 }
 
 /// Registers every widget, hidden.
@@ -39,7 +41,15 @@ pub(crate) fn register_widgets(app: &mut App, config: &CombatHudConfig) {
             .map(|line| &*Box::leak(format!("{prefix}{line}").into_boxed_str()))
             .collect()
     };
+    let usable_items = app
+        .world()
+        .resource::<ItemCatalog>()
+        .0
+        .iter()
+        .filter(|item| matches!(item.kind, ItemKind::Heal(_)))
+        .count();
     let lines = HudLines {
+        items: numbered("hud_item", usable_items),
         score_rows: numbered("hud_match_score_row", MAX_PLAYERS),
         kills: numbered("hud_kill", config.kill_feed_lines as usize),
     };
@@ -66,6 +76,10 @@ pub(crate) fn register_widgets(app: &mut App, config: &CombatHudConfig) {
         (RESULT_WIDGET, HudAnchor::TopCenter),
     ] {
         app.register_hud_widget(text(id, anchor, size));
+    }
+    // Above the health, which sorts first at the same corner.
+    for id in &lines.items {
+        app.register_hud_widget(text(id, HudAnchor::BottomLeft, size));
     }
     for kind in WeaponKind::ALL {
         app.register_hud_widget(text(ammo_widget(kind), HudAnchor::BottomRight, size));

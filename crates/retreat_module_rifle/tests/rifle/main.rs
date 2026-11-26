@@ -319,3 +319,33 @@ fn a_shot_and_a_reload_are_each_heard_once_per_id() {
     heard.dedup();
     assert_eq!(heard, ["rifle/1/1", "rifle/1/reload/1"]);
 }
+
+#[test]
+fn with_an_inventory_the_rifle_spends_its_reserve_and_needs_its_weapon_item() {
+    let mut app = app();
+    let rounds = ItemDefinition::new("rounds", "Rounds", ItemKind::Ammo(WeaponKind::Rifle), 90);
+    let gun = ItemDefinition::new("gun", "Rifle", ItemKind::Weapon(WeaponKind::Rifle), 1);
+    app.world_mut()
+        .insert_resource(ItemCatalog(vec![rounds.clone(), gun.clone()]));
+    let shooter = character_of(app.world_mut(), PlayerId(1)).unwrap();
+    app.world_mut()
+        .entity_mut(shooter)
+        .insert(Inventory::new(2));
+    assert!(run(&mut app, "rifle.fire 0 0").is_err(), "not carried");
+    {
+        let mut inventory = app.world_mut().get_mut::<Inventory>(shooter).unwrap();
+        inventory.add(&gun, 1);
+        inventory.add(&rounds, 2);
+    }
+    for _ in 0..3 {
+        ok(&mut app, "rifle.fire 0 0");
+        ticks(&mut app, 10);
+    }
+    ok(&mut app, "rifle.reload");
+    ticks(&mut app, 96);
+    // 27 rounds left, two more came from the reserve.
+    ok(&mut app, "assert.rifle_ammo 1 29");
+    let inventory = app.world().get::<Inventory>(shooter).unwrap();
+    assert_eq!(inventory.count(&rounds.id), 0);
+    assert!(run(&mut app, "rifle.reload").is_err(), "nothing left");
+}

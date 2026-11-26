@@ -1,0 +1,29 @@
+[package]
+name = "retreat_module_inventory"
+description = "Retreat module: what players carry, using items, and emptying on death and a new match."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lib]
+test = false
+doctest = false
+
+[dependencies]
+bevy.workspace = true
+retreat_engine_api.workspace = true
+retreat_gameplay_api.workspace = true
+
+# Module manifest (schema in Retreat-Modules/CLAUDE.md).
+[package.metadata.retreat]
+manifest_version = 1
+id = "inventory"
+display_name = "Inventory"
+summary = "Item stacks per player, reserve ammunition, health kits used with a key; emptied on death and restart."
+plugin = "retreat_module_inventory::InventoryModulePlugin"
+commands = ["inventory.grant", "inventory.use", "assert.inventory"]
+actions = ["inventory_use"]
+requires = ["input", "networking"]
+engine_api = "0.1"
+targets = ["native", "wasm"]
+network_role = "both"

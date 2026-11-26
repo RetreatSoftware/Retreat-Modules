@@ -1,16 +1,17 @@
 //! This machine's fire and reload buttons and aim. The camera looks over a shoulder and the shot
 //! leaves the eyes, so the eyes are aimed at what the center of the screen shows.
 
-use crate::player::{character_of, dead_players, may_fight};
+use crate::player::{dead_players, may_fight};
 use crate::rules::ready_to_send;
 use bevy::math::ops;
 use bevy::prelude::*;
 use retreat_engine_api::{
     CursorCapture, GameCamera, InputActions, NetInputQueue, NetLocalClient, NetViewTick, RayCast,
-    RemoteInterpolation, cast_ray_at, run_command_line,
+    RemoteInterpolation, cast_ray_at,
 };
 use retreat_gameplay_api::{
-    CharacterSize, LookAngles, SoloPlayer, WeaponKind, Weapons, local_player_id,
+    CharacterSize, Inventory, ItemCatalog, LookAngles, SoloPlayer, WeaponKind, Weapons,
+    character_of, local_player_id, owns_weapon, reserve_of,
 };
 
 /// What a weapon module asks with, once per tick.
@@ -87,26 +88,24 @@ pub fn pull_trigger(
         return None;
     }
     let weapon = *world.get::<Weapons>(character)?.of(trigger.kind)?;
+    let inventory = world.get::<Inventory>(character);
+    let catalog = world.resource::<ItemCatalog>();
+    if !owns_weapon(inventory, catalog, trigger.kind) {
+        return None;
+    }
+    let reserve = reserve_of(inventory, catalog, trigger.kind);
     let cooldown = cooldown(world, character)?;
     // A queued line runs at the start of the next tick, after this tick's timers.
     let ticks_until_run = u32::from(world.resource::<NetInputQueue>().accepting);
-    if reload_pressed && weapon.reload_ticks_left == 0 && weapon.ammo < weapon.magazine {
+    let can_reload = weapon.reload_ticks_left == 0 && weapon.ammo < weapon.magazine;
+    if reload_pressed && can_reload && reserve != Some(0) {
         Some(TriggerOrder::Reload)
-    } else if fire && ready_to_send(&weapon, cooldown, ticks_until_run) {
+    } else if fire && ready_to_send(&weapon, cooldown, ticks_until_run, reserve) {
         let view_tick = view_tick(world, character);
         let aim = aim_of(world, character, trigger.range, view_tick)?;
         Some(TriggerOrder::Fire { aim, view_tick })
     } else {
         None
-    }
-}
-
-/// Sends the line to the server, or runs it here without a network.
-pub fn issue(world: &mut World, line: String) {
-    if world.resource::<NetInputQueue>().accepting {
-        world.resource_mut::<NetInputQueue>().push(line);
-    } else if let Err(error) = run_command_line(world, &line) {
-        warn!("{error}");
     }
 }
 

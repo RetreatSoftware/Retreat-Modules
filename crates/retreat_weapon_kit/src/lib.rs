@@ -17,9 +17,10 @@ pub mod trigger;
 
 pub use commands::{assert_weapon, reload_weapon};
 pub use inventory::{count_hits, equip, loaded};
-pub use player::{actor, character_of, dead_players, may_fight, refused};
+pub use player::{dead_players, may_fight};
+pub use retreat_gameplay_api::{actor, character_of, issue, refused};
 pub use rules::{
     LATE_INPUT_TOLERANCE_TICKS, WeaponTicks, advance_weapon, ready_to_send, try_fire, try_reload,
 };
 pub use sound::play_reload;
-pub use trigger::{Trigger, TriggerMemory, TriggerOrder, aim_angles, issue, pull_trigger};
+pub use trigger::{Trigger, TriggerMemory, TriggerOrder, aim_angles, pull_trigger};

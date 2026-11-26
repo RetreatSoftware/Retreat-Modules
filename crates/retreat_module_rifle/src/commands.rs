@@ -10,8 +10,8 @@ use retreat_engine_api::{
     cast_ray_at,
 };
 use retreat_gameplay_api::{
-    CharacterSize, DamageCause, DamageRequested, LookAngles, PlayerFired, PlayerId, WeaponKind,
-    Weapons, view_direction,
+    AmmoSource, CharacterSize, DamageCause, DamageRequested, Inventory, ItemCatalog, LookAngles,
+    PlayerFired, PlayerId, WeaponKind, Weapons, owns_weapon, view_direction,
 };
 use retreat_weapon_kit::{
     actor, assert_weapon, character_of, dead_players, may_fight, refused, reload_weapon, try_fire,
@@ -41,6 +41,11 @@ pub(crate) fn fire_command(world: &mut World, args: &CommandArgs) -> CommandResu
         world.resource::<RifleConfig>(),
         world.resource::<Time<Fixed>>(),
     );
+    let mut carried = world.get::<Inventory>(shooter).cloned();
+    let catalog = world.resource::<ItemCatalog>().clone();
+    if !owns_weapon(carried.as_ref(), &catalog, WeaponKind::Rifle) {
+        return refused(world, args, "the player does not carry this weapon");
+    }
     let mut query = world.query::<(&Transform, &mut Weapons, &mut RifleState, &RifleShot)>();
     let Ok((transform, mut weapons, mut rifle, shot)) = query.get_mut(world, shooter) else {
         return refused(world, args, "the player has no rifle yet");
@@ -50,11 +55,19 @@ pub(crate) fn fire_command(world: &mut World, args: &CommandArgs) -> CommandResu
         return refused(world, args, "the player has no rifle yet");
     };
     let mut next = *rifle;
-    if !try_fire(&mut weapon, &mut next.cooldown_ticks, ticks) {
+    let mut source = AmmoSource {
+        inventory: carried.as_mut(),
+        catalog: &catalog,
+        weapon: WeaponKind::Rifle,
+    };
+    if !try_fire(&mut weapon, &mut next.cooldown_ticks, ticks, &mut source) {
         return refused(world, args, "the rifle is not ready");
     }
     weapons.put(weapon);
     rifle.set_if_neq(next);
+    if let Some(carried) = carried {
+        world.entity_mut(shooter).insert(carried);
+    }
     world.write_message(PlayerFired { player });
     let from = world.resource::<CharacterSize>().eye(center);
     let aim = LookAngles { yaw, pitch };

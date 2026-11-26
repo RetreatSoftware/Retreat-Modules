@@ -31,10 +31,17 @@
 //! | [`KillLog`] (component of the match entity) | match | HUD |
 //! | [`PlayerRoster`] (resource) | the game | visuals, HUD |
 //! | [`SoundCue`] (in module configs) | the game | modules that play sounds |
+//! | [`ItemCatalog`] (resource) | the game | inventory, weapons, HUD, loot |
+//! | [`Inventory`] (component) | inventory; weapons take their ammunition | weapons, HUD, loot |
+//! | [`GrantRequested`] | loot, commands | inventory |
+//! | [`ItemsLost`] | inventory | loot |
+//! | [`HealRequested`] | inventory | health |
 //! | [`MatchEnded`], [`MatchRestarted`] | match | every module with per-match state |
 
+mod acting;
 mod damage;
 mod health;
+mod item;
 mod kill_log;
 mod local_player;
 mod look;
@@ -52,10 +59,15 @@ mod weapon;
 use bevy::prelude::*;
 use retreat_engine_api::{AppNetStateExt, InputActionSystems, SoundEvents, add_net_contract};
 
+pub use acting::{actor, character_of, issue, refused};
 pub use damage::{
     DamageApplied, DamageCause, DamageRequested, PlayerDied, PlayerFired, PlayerRespawned,
 };
 pub use health::{DamageOutcome, Health, RespawnTimer};
+pub use item::{
+    AmmoSource, GrantRequested, HealRequested, Inventory, ItemCatalog, ItemDefinition, ItemId,
+    ItemKind, ItemStack, ItemsLost, owns_weapon, reserve_of,
+};
 pub use kill_log::{KillEntry, KillLog};
 pub use local_player::{SoloPlayer, local_player_id};
 pub use look::{LookAngles, horizontal_axes, view_direction};
@@ -79,6 +91,11 @@ pub fn add_gameplay_contract(app: &mut App) {
     {
         panic!("invalid PlayerRoster: {problem}");
     }
+    if let Some(catalog) = app.world().get_resource::<ItemCatalog>()
+        && let Err(problem) = catalog.validate()
+    {
+        panic!("invalid ItemCatalog: {problem}");
+    }
     if let Some(size) = app.world().get_resource::<CharacterSize>()
         && let Err(problem) = size.validate()
     {
@@ -92,6 +109,11 @@ pub fn add_gameplay_contract(app: &mut App) {
         .register_net_state::<RespawnTimer>()
         .register_net_state::<Weapons>()
         .register_net_state::<KillLog>()
+        .register_net_state::<Inventory>()
+        .init_resource::<ItemCatalog>()
+        .add_message::<GrantRequested>()
+        .add_message::<ItemsLost>()
+        .add_message::<HealRequested>()
         .init_resource::<PlayerRoster>()
         .init_resource::<SoundEvents>()
         .init_resource::<CharacterSize>()
@@ -109,6 +131,9 @@ pub fn add_gameplay_contract(app: &mut App) {
             (
                 GameplaySystems::Act,
                 GameplaySystems::Damage,
+                GameplaySystems::Pickup,
+                GameplaySystems::Items,
+                GameplaySystems::Drops,
                 GameplaySystems::Match,
                 GameplaySystems::Restart,
                 GameplaySystems::Respawned,

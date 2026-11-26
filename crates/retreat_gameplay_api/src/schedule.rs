@@ -14,6 +14,12 @@ pub enum GameplaySystems {
     /// Health applies damage, runs respawn timers; writes [`crate::DamageApplied`],
     /// [`crate::PlayerDied`] and [`crate::PlayerRespawned`].
     Damage,
+    /// Things in the world are picked up: they write [`crate::GrantRequested`].
+    Pickup,
+    /// Inventories take in grants and lose their items to deaths; writes [`crate::ItemsLost`].
+    Items,
+    /// What was lost appears in the world.
+    Drops,
     /// The match counts deaths and time; writes [`crate::MatchEnded`] and
     /// [`crate::MatchRestarted`].
     Match,

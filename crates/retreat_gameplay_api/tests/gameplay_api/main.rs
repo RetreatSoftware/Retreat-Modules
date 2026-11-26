@@ -115,6 +115,7 @@ fn the_contract_registers_the_shared_net_state() {
             "engine.intangible",
             "engine.pose",
             "gameplay.health",
+            "gameplay.inventory",
             "gameplay.kill_log",
             "gameplay.look",
             "gameplay.match",
@@ -195,4 +196,91 @@ fn a_cue_becomes_a_positional_event_and_others_sound_in_the_past() {
     );
     assert!(validate_cues([&None, &Some(cue)]).is_ok());
     assert!(validate_cues([&Some(SoundCue::new("a.wav", 3.0))]).is_err());
+}
+
+fn kit() -> ItemDefinition {
+    ItemDefinition::new("health_kit", "Health kit", ItemKind::Heal(50), 3)
+}
+
+fn rounds() -> ItemDefinition {
+    ItemDefinition::new("rounds", "Rounds", ItemKind::Ammo(WeaponKind::Rifle), 90)
+}
+
+#[test]
+fn an_inventory_holds_one_stack_per_item_up_to_its_limits() {
+    let mut inventory = Inventory::new(1);
+    assert_eq!(inventory.add(&kit(), 2), 2);
+    assert_eq!(inventory.add(&kit(), 5), 1);
+    assert_eq!(inventory.room_for(&kit()), 0);
+    assert_eq!(inventory.room_for(&rounds()), 0, "no free slot");
+    assert_eq!(inventory.take(&kit().id, 5), 3);
+    assert!(inventory.stacks().is_empty());
+    assert_eq!(inventory.add(&rounds(), 100), 90);
+    assert_eq!(inventory.clear().len(), 1);
+}
+
+#[test]
+fn without_an_inventory_or_an_item_ammunition_is_unlimited_and_weapons_are_carried() {
+    let rifle = WeaponKind::Rifle;
+    let catalog = ItemCatalog(vec![
+        rounds(),
+        ItemDefinition::new(
+            "launcher",
+            "Rocket launcher",
+            ItemKind::Weapon(WeaponKind::Launcher),
+            1,
+        ),
+    ]);
+    assert_eq!(reserve_of(None, &catalog, rifle), None);
+    assert!(owns_weapon(None, &catalog, WeaponKind::Launcher));
+    let mut inventory = Inventory::new(4);
+    assert!(!owns_weapon(
+        Some(&inventory),
+        &catalog,
+        WeaponKind::Launcher
+    ));
+    assert!(
+        owns_weapon(Some(&inventory), &catalog, rifle),
+        "no such item"
+    );
+    assert_eq!(reserve_of(Some(&inventory), &catalog, rifle), Some(0));
+    assert_eq!(
+        reserve_of(Some(&inventory), &catalog, WeaponKind::Launcher),
+        None
+    );
+    inventory.add(&rounds(), 40);
+    let mut source = AmmoSource {
+        inventory: Some(&mut inventory),
+        catalog: &catalog,
+        weapon: rifle,
+    };
+    assert_eq!(
+        (source.take(30), source.take(30), source.reserve()),
+        (30, 10, Some(0))
+    );
+    let mut unlimited = AmmoSource {
+        inventory: None,
+        catalog: &catalog,
+        weapon: rifle,
+    };
+    assert_eq!(unlimited.take(30), 30);
+}
+
+#[test]
+fn a_catalog_names_each_thing_once() {
+    assert!(ItemCatalog(vec![kit(), rounds()]).validate().is_ok());
+    assert!(ItemCatalog(vec![kit(), kit()]).validate().is_err());
+    let more = ItemDefinition::new("more", "More", ItemKind::Ammo(WeaponKind::Rifle), 1);
+    assert!(ItemCatalog(vec![rounds(), more]).validate().is_err());
+    let nothing = ItemDefinition::new("x", "X", ItemKind::Heal(1), 0);
+    assert!(ItemCatalog(vec![nothing]).validate().is_err());
+}
+
+#[test]
+fn healing_stops_at_full_and_does_not_revive() {
+    let mut health = Health::full(100);
+    health.apply_damage(70);
+    assert_eq!((health.heal(50), health.heal(50)), (50, 20));
+    health.apply_damage(100);
+    assert_eq!(health.heal(50), 0);
 }

@@ -152,3 +152,22 @@ fn there_are_at_most_the_maximum_of_players() {
         .to_string();
     assert!(error.contains("already 8 players"), "{error}");
 }
+
+#[test]
+fn a_heal_restores_hit_points_of_the_living_only() {
+    let mut app = app_with_ready_players(2);
+    ok(&mut app, "health.damage 1 70");
+    ticks(&mut app, 1);
+    ok(&mut app, "health.kill 2");
+    ticks(&mut app, 1);
+    for player in [1, 2] {
+        app.world_mut()
+            .write_message(retreat_gameplay_api::HealRequested {
+                player: retreat_gameplay_api::PlayerId(player),
+                amount: 50,
+            });
+    }
+    ticks(&mut app, 1);
+    ok(&mut app, "assert.health 1 80");
+    ok(&mut app, "assert.health 2 0");
+}

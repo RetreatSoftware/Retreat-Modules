@@ -4,7 +4,8 @@ use crate::config::RifleConfig;
 use bevy::prelude::*;
 use retreat_engine_api::{NetState, RetiredEntity};
 use retreat_gameplay_api::{
-    DamageApplied, DamageCause, Health, PlayerId, PlayerRespawned, WeaponKind, Weapons,
+    AmmoSource, DamageApplied, DamageCause, Health, Inventory, ItemCatalog, PlayerId,
+    PlayerRespawned, WeaponKind, Weapons,
 };
 use retreat_weapon_kit::{WeaponTicks, advance_weapon, equip, loaded};
 use serde::{Deserialize, Serialize};
@@ -63,20 +64,44 @@ pub(crate) fn attach_rifles(
     }
 }
 
+/// What a tick of the weapon reads and changes.
+type WeaponParts<State> = (
+    &'static mut Weapons,
+    &'static mut State,
+    Option<&'static Health>,
+    Option<&'static mut Inventory>,
+);
+
 /// One tick of cooldown and reload.
 pub(crate) fn advance_timers(
-    mut players: Query<(&mut Weapons, &mut RifleState, Option<&Health>), Without<RetiredEntity>>,
+    mut players: Query<WeaponParts<RifleState>, Without<RetiredEntity>>,
+    catalog: Res<ItemCatalog>,
     config: Res<RifleConfig>,
     time: Res<Time<Fixed>>,
 ) {
     let ticks = ticks_of(&config, &time);
-    for (mut weapons, mut rifle, health) in &mut players {
+    for (mut weapons, mut rifle, health, inventory) in &mut players {
         let Some(mut weapon) = weapons.of(WeaponKind::Rifle).copied() else {
             continue;
         };
         let mut next = *rifle;
         let alive = health.is_none_or(Health::is_alive);
-        advance_weapon(&mut weapon, &mut next.cooldown_ticks, ticks, alive);
+        let mut carried = inventory.as_deref().cloned();
+        let mut source = AmmoSource {
+            inventory: carried.as_mut(),
+            catalog: &catalog,
+            weapon: WeaponKind::Rifle,
+        };
+        advance_weapon(
+            &mut weapon,
+            &mut next.cooldown_ticks,
+            ticks,
+            alive,
+            &mut source,
+        );
+        if let (Some(mut inventory), Some(carried)) = (inventory, carried) {
+            inventory.set_if_neq(carried);
+        }
         rifle.set_if_neq(next);
         if weapons.of(WeaponKind::Rifle) != Some(&weapon) {
             weapons.put(weapon);

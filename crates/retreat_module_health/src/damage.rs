@@ -5,8 +5,8 @@ use crate::state::SpawnProtection;
 use bevy::prelude::*;
 use retreat_engine_api::{Intangible, RetiredEntity};
 use retreat_gameplay_api::{
-    DamageApplied, DamageCause, DamageRequested, Health, MatchState, PlayerDied, PlayerId,
-    RespawnTimer, ticks_from_seconds,
+    DamageApplied, DamageCause, DamageRequested, HealRequested, Health, MatchState, PlayerDied,
+    PlayerId, RespawnTimer, ticks_from_seconds,
 };
 
 /// "This player dies now", whatever its health or protection (`health.kill`, falling out).
@@ -80,6 +80,19 @@ pub(crate) fn apply_damage(
         for (entity, player, mut health, protected) in &mut players {
             if *player == request.target && combat && !protected && health.is_alive() {
                 outcome.hurt(entity, &mut health, request);
+            }
+        }
+    }
+}
+
+/// Restores what used items give, before this tick's damage.
+pub(crate) fn apply_heals(mut requests: MessageReader<HealRequested>, mut players: Targets) {
+    for request in requests.read().copied() {
+        for (_, player, mut health, _) in &mut players {
+            if *player == request.player && health.is_alive() {
+                let mut healed = *health;
+                healed.heal(request.amount);
+                health.set_if_neq(healed);
             }
         }
     }

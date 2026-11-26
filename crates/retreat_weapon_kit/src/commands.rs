@@ -1,10 +1,13 @@
 //! The shared parts of `<weapon>.reload` and `assert.<weapon>_*`.
 
-use crate::player::{actor, character_of, may_fight, refused};
+use crate::player::may_fight;
 use crate::rules::{WeaponTicks, try_reload};
 use bevy::prelude::*;
 use retreat_engine_api::{CommandArgs, CommandOutcome, CommandResult};
-use retreat_gameplay_api::{PlayerId, WeaponKind, WeaponStatus, Weapons};
+use retreat_gameplay_api::{
+    Inventory, ItemCatalog, PlayerId, WeaponKind, WeaponStatus, Weapons, actor, character_of,
+    owns_weapon, refused, reserve_of,
+};
 
 /// `<weapon>.reload` (no arguments).
 pub fn reload_weapon(
@@ -21,14 +24,24 @@ pub fn reload_weapon(
     if !may_fight(world, character) {
         return refused(world, args, "the player is dead or the match is over");
     }
+    let inventory = world.get::<Inventory>(character);
+    let catalog = world.resource::<ItemCatalog>();
+    if !owns_weapon(inventory, catalog, kind) {
+        return refused(world, args, "the player does not carry this weapon");
+    }
+    let reserve = reserve_of(inventory, catalog, kind);
     let Some(mut weapons) = world.get_mut::<Weapons>(character) else {
         return refused(world, args, "the player has no weapon yet");
     };
     let Some(mut next) = weapons.of(kind).copied() else {
         return refused(world, args, "the player does not have this weapon yet");
     };
-    if !try_reload(&mut next, ticks) {
-        return refused(world, args, "the magazine is full or already reloading");
+    if !try_reload(&mut next, ticks, reserve) {
+        return refused(
+            world,
+            args,
+            "the magazine is full, already reloading, or the reserve is empty",
+        );
     }
     weapons.put(next);
     Ok(CommandOutcome::Continue)
