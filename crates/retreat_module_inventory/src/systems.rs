@@ -1,6 +1,7 @@
 //! Creating, filling and emptying inventories.
 
 use crate::config::InventoryConfig;
+use crate::sounds::ItemUses;
 use bevy::prelude::*;
 use retreat_engine_api::RetiredEntity;
 use retreat_gameplay_api::{
@@ -17,7 +18,9 @@ pub(crate) fn attach_inventories(
     mut commands: Commands,
 ) {
     for entity in &players {
-        commands.entity(entity).insert(config.starting(&catalog));
+        commands
+            .entity(entity)
+            .insert((config.starting(&catalog), ItemUses::default()));
     }
 }
 

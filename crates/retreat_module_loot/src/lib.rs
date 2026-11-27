@@ -8,6 +8,7 @@
 //!   (`GrantRequested`). Players are served in id order, pickups in name order.
 //! - What a player loses on death (`ItemsLost`) lies there (`drop/<player>/<n>`) for a while; a
 //!   taker gets what fits and the rest stays.
+//! - What a player took is written to its `LastPickup`; every machine plays that kind's sound.
 //! - A new match puts every spot back and removes the drops. Nothing is picked up while a match
 //!   shows its result.
 //!
@@ -17,6 +18,7 @@
 mod commands;
 mod config;
 mod looks;
+mod sounds;
 mod state;
 mod systems;
 
@@ -57,9 +59,11 @@ impl Plugin for LootModulePlugin {
                 FixedUpdate,
                 (
                     (
+                        systems::attach_records,
                         systems::place_spot_pickups,
                         systems::advance_timers,
                         systems::take_pickups,
+                        sounds::play_pickup_sounds,
                     )
                         .chain()
                         .in_set(GameplaySystems::Pickup),

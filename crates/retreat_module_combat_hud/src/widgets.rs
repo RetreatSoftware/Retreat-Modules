@@ -31,6 +31,8 @@ pub struct HudLines {
     pub kills: Vec<&'static str>,
     /// `hud_item0`..: one per item of the catalog that is used from the inventory.
     pub items: Vec<&'static str>,
+    /// `hud_pickup0`..: one per item of the catalog, for the notice of what was picked up.
+    pub pickups: Vec<&'static str>,
 }
 
 /// Registers every widget, hidden.
@@ -48,7 +50,9 @@ pub(crate) fn register_widgets(app: &mut App, config: &CombatHudConfig) {
         .iter()
         .filter(|item| matches!(item.kind, ItemKind::Heal(_)))
         .count();
+    let catalog_size = app.world().resource::<ItemCatalog>().0.len();
     let lines = HudLines {
+        pickups: numbered("hud_pickup", catalog_size),
         items: numbered("hud_item", usable_items),
         score_rows: numbered("hud_match_score_row", MAX_PLAYERS),
         kills: numbered("hud_kill", config.kill_feed_lines as usize),
@@ -76,6 +80,13 @@ pub(crate) fn register_widgets(app: &mut App, config: &CombatHudConfig) {
         (RESULT_WIDGET, HudAnchor::TopCenter),
     ] {
         app.register_hud_widget(text(id, anchor, size));
+    }
+    for id in &lines.pickups {
+        app.register_hud_widget(text(
+            id,
+            HudAnchor::BottomCenter,
+            config.scoreboard_font_size,
+        ));
     }
     // Above the health, which sorts first at the same corner.
     for id in &lines.items {

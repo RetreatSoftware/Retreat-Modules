@@ -34,6 +34,7 @@
 //! | [`SoundCue`] (in module configs) | the game | modules that play sounds |
 //! | [`ItemCatalog`] (resource) | the game | inventory, weapons, HUD, loot |
 //! | [`Inventory`] (component) | inventory; weapons take their ammunition | weapons, HUD, loot |
+//! | [`LastPickup`] (component) | loot | HUD |
 //! | [`GrantRequested`] | loot, commands | inventory |
 //! | [`ItemsLost`] | inventory | loot |
 //! | [`HealRequested`] | inventory | health |
@@ -67,7 +68,7 @@ pub use damage::{
 pub use health::{DamageOutcome, Health, RespawnTimer};
 pub use item::{
     AmmoSource, GrantRequested, HealRequested, Inventory, ItemCatalog, ItemDefinition, ItemId,
-    ItemKind, ItemStack, ItemsLost, owns_weapon, reserve_of,
+    ItemKind, ItemStack, ItemsLost, LastPickup, owns_weapon, reserve_of,
 };
 pub use kill_log::{KillEntry, KillLog};
 pub use local_player::{SoloPlayer, local_player_id};
@@ -111,6 +112,7 @@ pub fn add_gameplay_contract(app: &mut App) {
         .register_net_state::<Weapons>()
         .register_net_state::<KillLog>()
         .register_net_state::<Inventory>()
+        .register_net_state::<LastPickup>()
         .init_resource::<ItemCatalog>()
         .add_message::<GrantRequested>()
         .add_message::<ItemsLost>()

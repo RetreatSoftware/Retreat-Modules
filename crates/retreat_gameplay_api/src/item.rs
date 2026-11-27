@@ -130,6 +130,22 @@ pub struct Inventory {
     stacks: Vec<ItemStack>,
 }
 
+/// On a player: what it last picked up from the world, for whoever shows or sounds it. A new
+/// pickup is a higher `count`.
+#[derive(Component, Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LastPickup {
+    /// How many ticks of this player's life in the session picked something up.
+    pub count: u32,
+    /// The kind of spot it came from; `None` for what the dead dropped.
+    pub kind: Option<String>,
+    /// What was taken, in the order it was taken.
+    pub items: Vec<ItemStack>,
+}
+
+impl NetState for LastPickup {
+    const ID: &'static str = "gameplay.last_pickup";
+}
+
 impl NetState for Inventory {
     const ID: &'static str = "gameplay.inventory";
 }

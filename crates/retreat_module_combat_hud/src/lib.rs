@@ -14,7 +14,7 @@
 //! | `hud_kill<n>` | for a while after a death appears in the `KillLog` |
 //!
 //! While the scoreboard is shown, the middle of the screen (crosshair, hit marker, respawn) is
-//! empty. What is shown is the pure [`hud_view`] and [`match_view`]; where it goes is the engine's
+//! empty. What is shown is the pure [`hud_view, pickup_lines`] and [`match_view`]; where it goes is the engine's
 //! HUD layout. A server has no player and shows nothing. Names come from the contract's
 //! `PlayerRoster` (a scoreboard row, a result and a kill line are in the
 //! player's color, the killer's for a kill; every text but the hit marker has a panel). Visibility is checked with `assert.hud_shown`, text with `assert.hud_text` (runs
@@ -36,7 +36,7 @@ use retreat_gameplay_api::{GameplaySystems, add_gameplay_contract};
 pub use config::CombatHudConfig;
 pub use looks::readable;
 pub use match_view::{KillFeed, MatchInput, MatchView, PlayerLine, kill_line, match_view};
-pub use view::{HudInput, HudView, hud_view};
+pub use view::{HudInput, HudView, hud_view, pickup_lines};
 pub use widgets::{
     CLOCK_WIDGET, CROSSHAIR_WIDGET, HEALTH_WIDGET, HIT_WIDGET, HudLines, RESPAWN_WIDGET,
     RESULT_WIDGET, SCORE_HEAD_WIDGET, ammo_widget,
@@ -56,6 +56,7 @@ impl Plugin for CombatHudModulePlugin {
         widgets::register_widgets(app, &config);
         app.init_resource::<show::HitMarker>()
             .init_resource::<show::ShownKills>()
+            .init_resource::<show::PickupNotice>()
             .init_resource::<show::ScoreboardSwitch>()
             .register_command(
                 "hud.scoreboard",
@@ -79,7 +80,12 @@ impl Plugin for CombatHudModulePlugin {
             })
             .add_systems(
                 FixedUpdate,
-                (show::time_hit_marker, show::time_kill_feed).after(GameplaySystems::Respawned),
+                (
+                    show::time_hit_marker,
+                    show::time_kill_feed,
+                    show::time_pickup_notice,
+                )
+                    .after(GameplaySystems::Respawned),
             )
             .add_systems(Update, show::show_hud);
     }

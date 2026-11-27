@@ -5,4 +5,5 @@ spots are the map's (`retreat_module_arena`, `PICKUP_SPOTS`). Commands: `assert.
 <spot> <true|false>`, `assert.loot_drops <count>`.
 
 Looks are turning, bobbing, glowing boxes, sized and colored by kind (`PickupLook`, `motion`).
-Not built: sounds (L3), prediction of taking, models.
+Each kind (and the drops) has a sound; the combat HUD names what its player took
+(`hud_pickup<n>`, from the contract's `LastPickup`). Not built: prediction of taking, models.

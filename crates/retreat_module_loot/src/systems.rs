@@ -7,7 +7,8 @@ use bevy::prelude::*;
 use retreat_engine_api::{NetLocalClient, NetPose, RemoveNetEntity, RetiredEntity};
 use retreat_gameplay_api::{
     CharacterSize, GrantRequested, Health, Inventory, ItemCatalog, ItemStack, ItemsLost,
-    MatchRestarted, MatchState, PickupSpots, PlayerId, PlayerRespawned, ticks_from_seconds,
+    LastPickup, MatchRestarted, MatchState, PickupSpots, PlayerId, PlayerRespawned,
+    ticks_from_seconds,
 };
 
 /// A pickup floats this far above its ground.
@@ -23,6 +24,15 @@ fn contents_of(kind: &PickupKind) -> Vec<ItemStack> {
             count: *count,
         })
         .collect()
+}
+
+type Silent = (With<PlayerId>, Without<LastPickup>, Without<RetiredEntity>);
+
+/// Every player gets the record of what it last picked up.
+pub(crate) fn attach_records(players: Query<Entity, Silent>, mut commands: Commands) {
+    for entity in &players {
+        commands.entity(entity).insert(LastPickup::default());
+    }
 }
 
 /// Puts a pickup at every spot that has none yet.
@@ -126,6 +136,28 @@ type Pickups<'w, 's> = Query<
     (Without<RetiredEntity>, Without<RemoveNetEntity>),
 >;
 
+/// What one player took in this tick.
+struct Taken {
+    player: PlayerId,
+    kind: Option<String>,
+    items: Vec<ItemStack>,
+}
+
+/// Adds to `all`, keeping one entry per player; the kind is that of what it took last.
+fn note(all: &mut Vec<Taken>, player: PlayerId, kind: Option<String>, items: &[ItemStack]) {
+    match all.iter_mut().find(|taken| taken.player == player) {
+        Some(taken) => {
+            taken.kind = kind;
+            taken.items.extend_from_slice(items);
+        }
+        None => all.push(Taken {
+            player,
+            kind,
+            items: items.to_vec(),
+        }),
+    }
+}
+
 /// What taking needs to know about the game.
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct Rules<'w, 's> {
@@ -145,6 +177,7 @@ pub(crate) fn take_pickups(
     mut pickups: Pickups,
     rules: Rules,
     mut grants: MessageWriter<GrantRequested>,
+    mut records: Query<(&PlayerId, &mut LastPickup), Without<RetiredEntity>>,
     mut commands: Commands,
 ) {
     let respawned: Vec<PlayerId> = respawns.read().map(|respawn| respawn.player).collect();
@@ -169,6 +202,7 @@ pub(crate) fn take_pickups(
         .map(|(entity, name, ..)| (name.to_string(), entity))
         .collect();
     order.sort();
+    let mut noted = Vec::new();
     for (_, entity) in order {
         let Ok((_, _, pose, mut pickup)) = pickups.get_mut(entity) else {
             continue;
@@ -184,6 +218,11 @@ pub(crate) fn take_pickups(
             if taken.is_empty() {
                 continue;
             }
+            let kind = match &pickup.origin {
+                PickupOrigin::Spot { kind, .. } => Some(kind.clone()),
+                PickupOrigin::Drop { .. } => None,
+            };
+            note(&mut noted, *player, kind, &taken);
             for stack in taken {
                 grants.write(GrantRequested {
                     player: *player,
@@ -212,6 +251,15 @@ pub(crate) fn take_pickups(
             }
             pickup.set_if_neq(next);
             break;
+        }
+    }
+    for taken in noted {
+        for (player, mut record) in &mut records {
+            if *player == taken.player {
+                record.count += 1;
+                record.kind.clone_from(&taken.kind);
+                record.items.clone_from(&taken.items);
+            }
         }
     }
 }

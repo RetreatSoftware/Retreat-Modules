@@ -2,7 +2,7 @@
 
 use bevy::prelude::*;
 use retreat_engine_api::VisualMotion;
-use retreat_gameplay_api::{ItemCatalog, ItemId};
+use retreat_gameplay_api::{ItemCatalog, ItemId, SoundCue, validate_cues};
 
 /// How a pickup is drawn: a glowing box.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -22,6 +22,8 @@ pub struct PickupKind {
     /// How long until it is there again.
     pub respawn_seconds: f32,
     pub look: PickupLook,
+    /// Heard when it is taken.
+    pub sound: Option<SoundCue>,
 }
 
 /// A game changes these by inserting the resource before adding the plugin. The default has no
@@ -34,6 +36,8 @@ pub struct LootConfig {
     /// How long the dead's items lie there; 0 drops nothing.
     pub drop_seconds: f32,
     pub drop_look: PickupLook,
+    /// Heard when something is taken from the dead.
+    pub drop_sound: Option<SoundCue>,
     /// How every pickup turns and bobs (only what is drawn moves).
     pub motion: VisualMotion,
 }
@@ -48,6 +52,7 @@ impl Default for LootConfig {
                 color: Color::srgb(0.9, 0.9, 0.9),
                 size: Vec3::splat(0.35),
             },
+            drop_sound: None,
             motion: VisualMotion {
                 turn: 1.5,
                 bob_height: 0.1,
@@ -71,6 +76,12 @@ impl LootConfig {
             return Err("drop_seconds must be 0 or more".to_string());
         }
         self.motion.validate()?;
+        validate_cues(
+            self.kinds
+                .iter()
+                .map(|kind| &kind.sound)
+                .chain([&self.drop_sound]),
+        )?;
         let mut looks = vec![("drop".to_string(), self.drop_look)];
         for (index, kind) in self.kinds.iter().enumerate() {
             let name = &kind.kind;

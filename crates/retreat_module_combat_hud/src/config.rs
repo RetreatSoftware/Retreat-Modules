@@ -18,6 +18,8 @@ pub struct CombatHudConfig {
     pub kill_feed_seconds: f32,
     /// Most deaths in the kill feed at once.
     pub kill_feed_lines: u32,
+    /// How long what was just picked up is named.
+    pub pickup_seconds: f32,
     /// Behind every text, so it reads over a bright scene. Lines of one corner share one box.
     pub panel: Color,
     /// Heard by this machine's player with the hit marker.
@@ -34,6 +36,7 @@ impl Default for CombatHudConfig {
             scoreboard_font_size: 22.0,
             kill_feed_seconds: 4.0,
             kill_feed_lines: 4,
+            pickup_seconds: 2.0,
             panel: Color::srgba(0.0, 0.0, 0.0, 0.85),
             hit_sound: None,
         }
@@ -49,6 +52,7 @@ impl CombatHudConfig {
             ("crosshair_size", self.crosshair_size),
             ("scoreboard_font_size", self.scoreboard_font_size),
             ("kill_feed_seconds", self.kill_feed_seconds),
+            ("pickup_seconds", self.pickup_seconds),
         ] {
             if !(value.is_finite() && value > 0.0) {
                 return Err(format!("{field} must be more than 0, got {value}"));

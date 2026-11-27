@@ -6,6 +6,7 @@
 //! - `inventory.use <item>` (client allowed) uses one of a usable item: a health kit writes
 //!   `HealRequested`. Refused for the dead, in a finished match, without the item, and when it
 //!   would do nothing (full health). `inventory_use` (E) uses the first usable item carried.
+//! - Each use counts up the player's [`ItemUses`]; every machine plays `use_sound` for it.
 //! - A death empties the inventory and says what was lost (`ItemsLost`, where).
 //! - A new life (`PlayerRespawned`) and a new match (`MatchRestarted`) reset it to the loadout.
 //!
@@ -15,15 +16,18 @@
 mod commands;
 mod config;
 mod input;
+mod sounds;
 mod systems;
 
 use bevy::prelude::*;
 use retreat_engine_api::{
-    AppCommandExt, AppInputExt, AppNetExt, HELD_ONLY, InputAction, InputActionSystems, InputKey,
+    AppCommandExt, AppInputExt, AppNetExt, AppNetStateExt, HELD_ONLY, InputAction,
+    InputActionSystems, InputKey,
 };
 use retreat_gameplay_api::{GameplaySystems, ItemCatalog, add_gameplay_contract};
 
 pub use config::InventoryConfig;
+pub use sounds::ItemUses;
 
 /// Adds the inventory. Insert the `ItemCatalog` and an [`InventoryConfig`] first.
 pub struct InventoryModulePlugin;
@@ -39,6 +43,7 @@ impl Plugin for InventoryModulePlugin {
         if let Err(problem) = config.validate(catalog) {
             panic!("invalid InventoryConfig: {problem}");
         }
+        app.register_net_state::<ItemUses>();
         app.register_command(
             "inventory.grant",
             "inventory.grant <player> <item> <count>",
@@ -67,7 +72,11 @@ impl Plugin for InventoryModulePlugin {
                     .chain()
                     .after(InputActionSystems)
                     .before(GameplaySystems::Act),
-                (systems::apply_grants, systems::lose_on_death)
+                (
+                    systems::apply_grants,
+                    systems::lose_on_death,
+                    sounds::play_use_sounds,
+                )
                     .chain()
                     .in_set(GameplaySystems::Items),
                 systems::reset_on_restart.in_set(GameplaySystems::Restart),

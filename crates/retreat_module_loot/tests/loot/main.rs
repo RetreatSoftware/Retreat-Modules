@@ -28,6 +28,7 @@ fn config() -> LootConfig {
                 color: Color::srgb(0.1, 0.9, 0.2),
                 size: Vec3::splat(0.4),
             },
+            sound: Some(SoundCue::new("sounds/kit.wav", 0.5)),
         }],
         drop_seconds: 2.0,
         ..LootConfig::default()
@@ -39,6 +40,7 @@ fn app() -> App {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
         .init_resource::<CommandRegistry>()
+        .init_resource::<SoundEvents>()
         .insert_resource(catalog())
         .insert_resource(config())
         .add_plugins(LootModulePlugin);
@@ -248,4 +250,28 @@ fn the_tick_of_a_respawn_takes_nothing_where_the_player_died() {
     });
     ticks(&mut app, 1);
     assert!(grants(&mut app).is_empty());
+}
+
+#[test]
+fn a_pickup_is_recorded_on_its_taker_and_heard_once() {
+    let mut app = app();
+    let taker = player(&mut app, 1, Vec3::X * 9.0);
+    ticks(&mut app, 2);
+    let place = CharacterSize::default().center(Vec3::ZERO);
+    app.world_mut()
+        .get_mut::<Transform>(taker)
+        .unwrap()
+        .translation = place;
+    ticks(&mut app, 3);
+    let record = app.world().get::<LastPickup>(taker).unwrap();
+    assert_eq!((record.count, record.kind.as_deref()), (1, Some("health")));
+    assert_eq!(record.items[0].item, ItemId::new("kit"));
+    let heard: Vec<String> = app
+        .world()
+        .resource::<SoundEvents>()
+        .requests
+        .iter()
+        .map(|event| event.id.clone())
+        .collect();
+    assert_eq!(heard, ["loot/1/1"]);
 }

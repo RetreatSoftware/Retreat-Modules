@@ -4845,6 +4845,7 @@ dependencies = [
  "bevy",
  "retreat_engine_api",
  "retreat_gameplay_api",
+ "serde",
 ]
 
 [[package]]

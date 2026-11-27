@@ -19,10 +19,12 @@ fn app() -> App {
     app.add_plugins(MinimalPlugins)
         .init_resource::<CommandRegistry>()
         .init_resource::<InputActions>()
+        .init_resource::<SoundEvents>()
         .insert_resource(catalog())
         .insert_resource(InventoryConfig {
             slots: 2,
             loadout: vec![(ItemId::new("rounds"), 30), (ItemId::new("kit"), 1)],
+            use_sound: Some(SoundCue::new("sounds/heal.wav", 0.5)),
         })
         .add_plugins(InventoryModulePlugin);
     app.world_mut().spawn((
@@ -173,6 +175,27 @@ fn a_loadout_that_does_not_fit_is_refused_at_startup() {
         .insert_resource(InventoryConfig {
             slots: 2,
             loadout: vec![(ItemId::new("kit"), 9)],
+            use_sound: None,
         })
         .add_plugins(InventoryModulePlugin);
+}
+
+#[test]
+fn every_use_is_heard_once() {
+    let mut app = app();
+    ok(&mut app, "inventory.grant 1 kit 1");
+    ticks(&mut app, 1);
+    for _ in 0..2 {
+        wound(&mut app, 10);
+        ok(&mut app, "inventory.use kit");
+        ticks(&mut app, 3);
+    }
+    let heard: Vec<String> = app
+        .world()
+        .resource::<SoundEvents>()
+        .requests
+        .iter()
+        .map(|event| event.id.clone())
+        .collect();
+    assert_eq!(heard, ["item/1/1", "item/1/2"]);
 }

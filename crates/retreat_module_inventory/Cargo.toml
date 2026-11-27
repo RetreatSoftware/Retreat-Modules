@@ -13,6 +13,7 @@ doctest = false
 bevy.workspace = true
 retreat_engine_api.workspace = true
 retreat_gameplay_api.workspace = true
+serde.workspace = true
 
 # Module manifest (schema in Retreat-Modules/CLAUDE.md).
 [package.metadata.retreat]
@@ -23,7 +24,7 @@ summary = "Item stacks per player, reserve ammunition, health kits used with a k
 plugin = "retreat_module_inventory::InventoryModulePlugin"
 commands = ["inventory.grant", "inventory.use", "assert.inventory"]
 actions = ["inventory_use"]
-requires = ["input", "networking"]
+requires = ["audio", "input", "networking"]
 engine_api = "0.1"
 targets = ["native", "wasm"]
 network_role = "both"

@@ -1,5 +1,6 @@
 //! `inventory.*` and `assert.inventory`. Clients may send `inventory.use`.
 
+use crate::sounds::ItemUses;
 use bevy::prelude::*;
 use retreat_engine_api::{CommandArgs, CommandOutcome, CommandResult, RetiredEntity};
 use retreat_gameplay_api::{
@@ -61,6 +62,9 @@ pub(crate) fn use_command(world: &mut World, args: &CommandArgs) -> CommandResul
         return refused(world, args, "the player does not carry this item");
     }
     inventory.take(&item, 1);
+    if let Some(mut uses) = world.get_mut::<ItemUses>(character) {
+        uses.0 += 1;
+    }
     world.write_message(HealRequested { player, amount });
     Ok(CommandOutcome::Continue)
 }

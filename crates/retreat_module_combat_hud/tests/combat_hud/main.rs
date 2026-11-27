@@ -30,6 +30,7 @@ fn input() -> HudInput {
         health: Some(Health::full(100)),
         weapons: Some(carrying([weapon(12)])),
         inventory: None,
+        taken: Vec::new(),
         catalog: ItemCatalog::default(),
         respawn: None,
         hit: false,
@@ -401,4 +402,28 @@ fn the_reserve_and_carried_items_show_only_what_the_player_has() {
         ..carrying_none
     });
     assert_eq!(view.items, ["Health kit x2"]);
+}
+
+#[test]
+fn what_was_picked_up_is_named_in_catalog_order_unless_dead_or_covered() {
+    let catalog = ItemCatalog(vec![
+        ItemDefinition::new("rounds", "Rounds", ItemKind::Ammo(WeaponKind::Rifle), 90),
+        ItemDefinition::new("kit", "Health kit", ItemKind::Heal(50), 3),
+    ]);
+    let stack = |item: &str, count| ItemStack {
+        item: ItemId::new(item),
+        count,
+    };
+    let taken = vec![stack("kit", 1), stack("rounds", 30), stack("rounds", 5)];
+    let with = |covered| {
+        hud_view(HudInput {
+            catalog: catalog.clone(),
+            taken: taken.clone(),
+            covered,
+            ..input()
+        })
+        .pickups
+    };
+    assert_eq!(with(false), ["+35 Rounds", "+1 Health kit"]);
+    assert!(with(true).is_empty());
 }

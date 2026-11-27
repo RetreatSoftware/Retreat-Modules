@@ -117,6 +117,7 @@ fn the_contract_registers_the_shared_net_state() {
             "gameplay.health",
             "gameplay.inventory",
             "gameplay.kill_log",
+            "gameplay.last_pickup",
             "gameplay.look",
             "gameplay.match",
             "gameplay.player",

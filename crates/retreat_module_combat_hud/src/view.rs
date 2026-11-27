@@ -1,8 +1,8 @@
 //! What the HUD shows for a given state. Pure.
 
 use retreat_gameplay_api::{
-    Health, Inventory, ItemCatalog, ItemKind, RespawnTimer, WeaponKind, WeaponStatus, Weapons,
-    owns_weapon, reserve_of,
+    Health, Inventory, ItemCatalog, ItemKind, ItemStack, RespawnTimer, WeaponKind, WeaponStatus,
+    Weapons, owns_weapon, reserve_of,
 };
 use std::time::Duration;
 
@@ -12,6 +12,8 @@ pub struct HudInput {
     pub health: Option<Health>,
     pub weapons: Option<Weapons>,
     pub inventory: Option<Inventory>,
+    /// What the running pickup notice names.
+    pub taken: Vec<ItemStack>,
     pub catalog: ItemCatalog,
     pub respawn: Option<RespawnTimer>,
     /// The hit marker is running.
@@ -30,6 +32,8 @@ pub struct HudView {
     pub ammo: Vec<(WeaponKind, String)>,
     /// One line per carried item to use, in catalog order.
     pub items: Vec<String>,
+    /// What was just picked up ([`pickup_lines`]); empty when nothing was.
+    pub pickups: Vec<String>,
     pub hit: bool,
     pub health: Option<String>,
     pub respawn: Option<String>,
@@ -68,6 +72,11 @@ pub fn hud_view(input: HudInput) -> HudView {
             })
             .collect(),
         items,
+        pickups: if alive && !input.covered {
+            pickup_lines(&input.taken, catalog)
+        } else {
+            Vec::new()
+        },
         hit: input.hit && armed && !input.covered,
         health: input
             .health
@@ -95,4 +104,20 @@ fn weapon_text(weapon: &WeaponStatus, reserve: Option<u32>) -> String {
             weapon.magazine
         )
     }
+}
+
+/// What was just picked up, one line per item: `+30 Rifle rounds`. Amounts of one item are summed.
+pub fn pickup_lines(taken: &[ItemStack], catalog: &ItemCatalog) -> Vec<String> {
+    catalog
+        .0
+        .iter()
+        .filter_map(|item| {
+            let count: u32 = taken
+                .iter()
+                .filter(|stack| stack.item == item.id)
+                .map(|stack| stack.count)
+                .sum();
+            (count > 0).then(|| format!("+{count} {}", item.name))
+        })
+        .collect()
 }

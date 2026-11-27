@@ -14,8 +14,9 @@ use retreat_engine_api::{
     UiHud,
 };
 use retreat_gameplay_api::{
-    Health, Inventory, ItemCatalog, KillLog, MatchState, PlayerId, PlayerRoster, RespawnTimer,
-    Scoreboard, SoloPlayer, WeaponKind, Weapons, local_player_id, ticks_from_seconds,
+    Health, Inventory, ItemCatalog, ItemStack, KillLog, LastPickup, MatchState, PlayerId,
+    PlayerRoster, RespawnTimer, Scoreboard, SoloPlayer, WeaponKind, Weapons, local_player_id,
+    ticks_from_seconds,
 };
 
 /// This machine's running hit marker. Not shared state.
@@ -32,6 +33,42 @@ pub(crate) struct HitMarker {
 /// This machine's kill feed.
 #[derive(Resource, Debug, Default)]
 pub(crate) struct ShownKills(pub KillFeed);
+
+/// This machine's notice of what its player just picked up. Not shared state.
+#[derive(Resource, Debug, Default)]
+pub(crate) struct PickupNotice {
+    /// The player's count last seen; `None` before it has a record.
+    seen: Option<u32>,
+    ticks_left: u32,
+    taken: Vec<ItemStack>,
+}
+
+/// Starts the notice when the player's `LastPickup` counts up. In ticks, as the hit marker.
+pub(crate) fn time_pickup_notice(
+    players: Query<(&PlayerId, &LastPickup), Without<RetiredEntity>>,
+    (client, solo): (Res<NetLocalClient>, Res<SoloPlayer>),
+    replaying: Res<NetReplaying>,
+    config: Res<CombatHudConfig>,
+    time: Res<Time<Fixed>>,
+    mut notice: ResMut<PickupNotice>,
+) {
+    if replaying.0 {
+        return;
+    }
+    let local = local_player_id(*client, *solo);
+    let record = players
+        .iter()
+        .find(|(player, _)| Some(**player) == local)
+        .map(|(_, record)| record);
+    notice.ticks_left = notice.ticks_left.saturating_sub(1);
+    if let (Some(before), Some(record)) = (notice.seen, record)
+        && record.count > before
+    {
+        notice.ticks_left = ticks_from_seconds(config.pickup_seconds, time.timestep()).max(1);
+        notice.taken.clone_from(&record.items);
+    }
+    notice.seen = record.map(|record| record.count);
+}
 
 /// Switched on by `hud.scoreboard on`, as the held button is.
 #[derive(Resource, Debug, Default)]
@@ -111,6 +148,7 @@ pub(crate) struct Sources<'w, 's> {
     kills: Res<'w, ShownKills>,
     config: Res<'w, CombatHudConfig>,
     lines: Res<'w, HudLines>,
+    notice: Res<'w, PickupNotice>,
     time: Res<'w, Time<Fixed>>,
 }
 
@@ -144,6 +182,11 @@ pub(crate) fn show_hud(sources: Sources, mut marker: ResMut<HitMarker>, mut hud:
             health: health.copied(),
             weapons: weapons.cloned(),
             inventory: inventory.cloned(),
+            taken: if sources.notice.ticks_left > 0 {
+                sources.notice.taken.clone()
+            } else {
+                Vec::new()
+            },
             catalog: sources.catalog.clone(),
             respawn: respawn.copied(),
             hit: marker.ticks_left > 0 || marker.unshown,
@@ -188,6 +231,9 @@ pub(crate) fn show_hud(sources: Sources, mut marker: ResMut<HitMarker>, mut hud:
     let mut items = view.items.into_iter();
     let item_lines = sources.lines.items.iter();
     texts.extend(item_lines.map(|id| (*id, plain(items.next()))));
+    let mut pickups = view.pickups.into_iter();
+    let pickup_lines = sources.lines.pickups.iter();
+    texts.extend(pickup_lines.map(|id| (*id, plain(pickups.next()))));
     let mut rows = table.score_rows.into_iter();
     let score_rows = sources.lines.score_rows.iter();
     texts.extend(score_rows.map(|id| (*id, colored(rows.next()))));
