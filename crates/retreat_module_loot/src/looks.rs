@@ -3,9 +3,9 @@
 use crate::config::LootConfig;
 use crate::state::{Pickup, PickupOrigin};
 use bevy::prelude::*;
-use retreat_engine_api::{HideVisuals, RetiredEntity, SphereVisual};
+use retreat_engine_api::{BoxVisual, HideVisuals, RetiredEntity};
 
-const GLOW: f32 = 1.2;
+const GLOW: f32 = 0.6;
 
 type Drawn<'w, 's> = Query<
     'w,
@@ -13,14 +13,14 @@ type Drawn<'w, 's> = Query<
     (
         Entity,
         &'static Pickup,
-        Option<&'static SphereVisual>,
+        Option<&'static BoxVisual>,
         Has<HideVisuals>,
     ),
     Without<RetiredEntity>,
 >;
 
 pub(crate) fn dress_pickups(pickups: Drawn, config: Res<LootConfig>, mut commands: Commands) {
-    for (entity, pickup, sphere, hidden) in &pickups {
+    for (entity, pickup, drawn, hidden) in &pickups {
         let look = match &pickup.origin {
             PickupOrigin::Spot { kind, .. } => config.kind(kind).map(|kind| kind.look),
             PickupOrigin::Drop { .. } => Some(config.drop_look),
@@ -28,13 +28,13 @@ pub(crate) fn dress_pickups(pickups: Drawn, config: Res<LootConfig>, mut command
         let Some(look) = look else {
             continue;
         };
-        let wanted = SphereVisual {
-            radius: look.radius,
+        let wanted = BoxVisual {
+            size: look.size,
             color: look.color,
             glow: GLOW,
         };
-        if sphere != Some(&wanted) {
-            commands.entity(entity).insert(wanted);
+        if drawn != Some(&wanted) {
+            commands.entity(entity).insert((wanted, config.motion));
         }
         if pickup.is_there() && hidden {
             commands.entity(entity).remove::<HideVisuals>();

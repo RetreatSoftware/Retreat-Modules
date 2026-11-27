@@ -1,14 +1,15 @@
 //! What lies on the map, and the module's numbers.
 
 use bevy::prelude::*;
+use retreat_engine_api::VisualMotion;
 use retreat_gameplay_api::{ItemCatalog, ItemId};
 
-/// How a pickup is drawn: a glowing sphere.
+/// How a pickup is drawn: a glowing box.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PickupLook {
     pub color: Color,
-    /// Metres.
-    pub radius: f32,
+    /// Width, height and depth, metres.
+    pub size: Vec3,
 }
 
 /// What one kind of spot holds.
@@ -33,6 +34,8 @@ pub struct LootConfig {
     /// How long the dead's items lie there; 0 drops nothing.
     pub drop_seconds: f32,
     pub drop_look: PickupLook,
+    /// How every pickup turns and bobs (only what is drawn moves).
+    pub motion: VisualMotion,
 }
 
 impl Default for LootConfig {
@@ -43,7 +46,12 @@ impl Default for LootConfig {
             drop_seconds: 20.0,
             drop_look: PickupLook {
                 color: Color::srgb(0.9, 0.9, 0.9),
-                radius: 0.25,
+                size: Vec3::splat(0.35),
+            },
+            motion: VisualMotion {
+                turn: 1.5,
+                bob_height: 0.1,
+                bob_seconds: 2.0,
             },
         }
     }
@@ -62,6 +70,7 @@ impl LootConfig {
         if !(self.drop_seconds.is_finite() && self.drop_seconds >= 0.0) {
             return Err("drop_seconds must be 0 or more".to_string());
         }
+        self.motion.validate()?;
         let mut looks = vec![("drop".to_string(), self.drop_look)];
         for (index, kind) in self.kinds.iter().enumerate() {
             let name = &kind.kind;
@@ -88,9 +97,9 @@ impl LootConfig {
         }
         match looks
             .iter()
-            .find(|(_, look)| !(look.radius.is_finite() && look.radius > 0.0))
+            .find(|(_, look)| !(look.size.is_finite() && look.size.min_element() > 0.0))
         {
-            Some((name, _)) => Err(format!("kind `{name}`: the radius must be more than 0")),
+            Some((name, _)) => Err(format!("kind `{name}`: every side must be more than 0")),
             None => Ok(()),
         }
     }

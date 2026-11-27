@@ -26,7 +26,7 @@ fn config() -> LootConfig {
             respawn_seconds: 1.0,
             look: PickupLook {
                 color: Color::srgb(0.1, 0.9, 0.2),
-                radius: 0.3,
+                size: Vec3::splat(0.4),
             },
         }],
         drop_seconds: 2.0,
@@ -211,7 +211,7 @@ fn a_new_match_fills_the_spots_and_removes_the_drops() {
 fn a_pickup_is_drawn_while_it_is_there() {
     let mut app = app();
     app.world_mut().run_schedule(Update);
-    let mut drawn = app.world_mut().query::<(&SphereVisual, Has<HideVisuals>)>();
+    let mut drawn = app.world_mut().query::<(&BoxVisual, Has<HideVisuals>)>();
     assert_eq!(
         drawn.single(app.world()).map(|(_, hidden)| hidden).ok(),
         Some(false)
