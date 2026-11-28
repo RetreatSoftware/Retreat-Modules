@@ -1,6 +1,6 @@
 //! The account module with only Bevy and the contract crates: names, the dev login, records,
 //! routing between client and server, sessions across joins and takeovers, and the screens. With
-//! the real engine (network, UI) it is checked in the crawler testbed (Retreat-Crawler).
+//! the real engine (network, UI) it is checked in the crawler testbed (Dungeon-Crawler).
 
 use bevy::prelude::*;
 use retreat_engine_api::{

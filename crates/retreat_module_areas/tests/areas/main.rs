@@ -1,5 +1,5 @@
 //! The areas module with only Bevy and the contract crates. With the real engine it is checked in
-//! the crawler testbed (Retreat-Crawler).
+//! the crawler testbed (Dungeon-Crawler).
 
 use bevy::prelude::*;
 use retreat_engine_api::{CommandRegistry, CommandResult, PhysicsTeleport, run_command_line};
