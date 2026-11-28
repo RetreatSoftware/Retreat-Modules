@@ -147,7 +147,7 @@ fn start_as(
             unique: vec![sword; swords],
             stack: None,
         },
-        Vec::new(),
+        ExtraRecords::default(),
     )
     .unwrap();
     (body, uids)

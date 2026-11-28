@@ -4748,7 +4748,7 @@ checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
 [[package]]
 name = "retreat_engine_api"
 version = "0.1.0"
-source = "git+https://github.com/RetreatSoftware/Retreat-Engine-3D#f8ba47f19f370be7c361afc839d18e4988198056"
+source = "git+https://github.com/RetreatSoftware/Retreat-Engine-3D#866b61dced0f80165d00001a5ad2004daa6af3c6"
 dependencies = [
  "bevy",
  "postcard",

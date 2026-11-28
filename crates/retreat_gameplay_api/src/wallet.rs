@@ -1,8 +1,9 @@
 //! The safe balance and service spots (crawler plan, phase 2).
 //!
 //! Currency is both (decided with the user): gold found is a carried item (lost on death, phase 4)
-//! until it is deposited into the character's safe balance in the city. The `wallet` module owns
-//! [`Wallet`]; deposits and withdrawals change the bag and the balance in one
+//! until it is deposited into the account's safe balance in the city (one balance for all of an
+//! account's characters in every world, decided with the user 2026-11-28). The `wallet` module
+//! owns [`Wallet`]; deposits and withdrawals change the bag and the balance in one
 //! [`crate::ItemTransaction`].
 //!
 //! [`ServiceSpots`] are map data: places in the world where a service is used (the town chest, the
@@ -14,7 +15,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::CharacterId;
 
-/// A character's safe balance (on its entity `wallet_<character>`; shared, private to the owner).
+/// The safe balance of a playing character's account, shown for that character (on its entity
+/// `wallet_<character>`; shared, private to the owner).
 #[derive(Component, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Wallet {
     pub character: CharacterId,

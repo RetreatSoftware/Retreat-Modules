@@ -122,7 +122,7 @@ fn start(app: &mut App, bases: &[&str]) -> (Entity, Vec<ItemUid>) {
             unique,
             stack: None,
         },
-        Vec::new(),
+        ExtraRecords::default(),
     )
     .unwrap();
     (body, uids)

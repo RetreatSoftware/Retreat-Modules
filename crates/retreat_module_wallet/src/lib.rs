@@ -2,9 +2,15 @@
 //! the user): gold found in dungeons is a carried item (a stack in the bag, lost on death in phase
 //! 4) until it is deposited into the safe balance in the city; the balance is never lost.
 //!
-//! The balance is the contract's `Wallet` on the entity `wallet_<character>`, made on the
-//! authoritative machine while the character plays (private to its player), saved in this module's
-//! record part `wallet` of `character/<id>`.
+//! **One balance per account, in every world** (decided with the user 2026-11-28; carried gold
+//! stays in each character's bag). It is saved in this module's record part `wallet` of
+//! `account/<id>` (no world in the key). Every world server shares the records, so two characters
+//! of one account in two worlds may deposit at the same moment: a deposit or withdrawal reads the
+//! balance fresh and writes bag and balance only if the balance record is still what it read
+//! (`ExtraRecords::expect_unchanged`); if another world wrote it in between, nothing moves and the
+//! player is told to try again. The contract's `Wallet` on the entity `wallet_<character>`, made
+//! on the authoritative machine while the character plays (private to its player), shows the
+//! account's balance and is read again every [`WalletConfig::refresh_seconds`].
 //!
 //! Commands (player requests, routed to the server; only in a safe area within reach of a deposit
 //! spot, the map's `ServiceSpots` of kind `deposit`): `wallet.deposit` moves all carried gold from
@@ -19,15 +25,15 @@ use retreat_engine_api::serde_json::{Value, json};
 use retreat_engine_api::{
     AppCommandExt, AppNetExt, AppUiExt, CommandArgs, CommandOutcome, CommandResult, NetLocalClient,
     NetPrivateTo, PanelAnchor, PanelDirection, RecordKey, RecordStore, RemoveNetEntity,
-    RetiredEntity, UiButtonEntry, UiPanel, UiPanels, UiTextField,
+    RetiredEntity, StoredRecord, UiButtonEntry, UiPanel, UiPanels, UiTextField,
 };
 use retreat_gameplay_api::{
-    CharacterId, CharacterSize, ContainerKind, GameplaySystems, ItemTransaction, NewItems,
-    ServiceSpots, SoloPlayer, Wallet, actor, add_gameplay_contract, add_to_container,
-    apply_item_transaction, character_record_owner, clear_item_notice, container_id,
-    container_items, in_safe_area, is_authority, local_player_id, named_entity, playing_body,
-    playing_characters, refused, route_request, show_item_notice, sync_item_privacy,
-    wallet_entity_name,
+    AccountId, CharacterSize, ContainerKind, ExtraRecords, GameplaySystems, ItemTransaction,
+    NewItems, PlayingCharacter, ServiceSpots, SoloPlayer, Wallet, account_record_owner, actor,
+    add_gameplay_contract, add_to_container, apply_item_transaction, clear_item_notice,
+    container_id, container_items, in_safe_area, is_authority, local_player_id, named_entity,
+    playing_body, playing_characters, refused, route_request, show_item_notice, sync_item_privacy,
+    ticks_from_seconds, wallet_entity_name,
 };
 
 /// This module's record part (and id).
@@ -36,16 +42,21 @@ const WALLET_RECORD_VERSION: u32 = 1;
 /// The `ServiceSpots` kind of a deposit spot.
 pub const DEPOSIT_SPOT_KIND: &str = "deposit";
 
-/// Which base is gold (insert before adding the plugin to change).
+/// Which base is gold, and how often a shown balance is read again (placeholder; insert before
+/// adding the plugin to change).
 #[derive(Resource, Debug, Clone, PartialEq)]
 pub struct WalletConfig {
     pub gold_base: String,
+    /// How often each playing character's shown balance is read again, so it shows what the
+    /// account's characters in other worlds deposited or withdrew.
+    pub refresh_seconds: f32,
 }
 
 impl Default for WalletConfig {
     fn default() -> Self {
         Self {
             gold_base: "gold".to_string(),
+            refresh_seconds: 0.5,
         }
     }
 }
@@ -98,38 +109,49 @@ impl Plugin for WalletModulePlugin {
     }
 }
 
-fn wallet_key(character: &CharacterId) -> RecordKey {
-    RecordKey::new(character_record_owner(character), WALLET_RECORD_PART)
+/// Where an account's balance is saved (every world of the account).
+pub fn wallet_key(account: &AccountId) -> RecordKey {
+    RecordKey::new(account_record_owner(account), WALLET_RECORD_PART)
 }
 
 fn wallet_record(balance: u64) -> Value {
     json!({ "balance": balance })
 }
 
-/// The saved balance of a character (0 without records or a record).
-fn saved_balance(world: &World, character: &CharacterId) -> Result<u64, String> {
+/// The saved balance of an account now and the record it came from (0 and `None` without
+/// records or a record).
+fn saved_balance(
+    world: &World,
+    account: &AccountId,
+) -> Result<(u64, Option<StoredRecord>), String> {
     let Some(store) = world.get_resource::<RecordStore>() else {
-        return Ok(0);
+        return Ok((0, None));
     };
-    let key = wallet_key(character);
+    let key = wallet_key(account);
     let Some(record) = store.read(&key).map_err(|error| error.to_string())? else {
-        return Ok(0);
+        return Ok((0, None));
     };
     record
         .check_not_newer_than(&key, WALLET_RECORD_VERSION)
         .map_err(|error| error.to_string())?;
-    record
+    let balance = record
         .data
         .get("balance")
         .and_then(Value::as_u64)
-        .ok_or_else(|| format!("{}: no `balance` number", key.owner))
+        .ok_or_else(|| format!("{}: no `balance` number", key.owner))?;
+    Ok((balance, Some(record)))
 }
 
-/// Every playing character has its wallet entity; wallets of characters that left go.
-fn keep_wallets(world: &mut World) {
+/// Every playing character has its wallet entity; wallets of characters that left go; shown
+/// balances are read again now and then (other worlds).
+fn keep_wallets(world: &mut World, mut ticks: Local<u64>) {
     if !is_authority(world) {
         return;
     }
+    let timestep = world.resource::<Time<Fixed>>().timestep();
+    let every = ticks_from_seconds(world.resource::<WalletConfig>().refresh_seconds, timestep);
+    *ticks += 1;
+    let refresh = (*ticks).is_multiple_of(u64::from(every.max(1)));
     let playing = playing_characters(world);
     let stale: Vec<Entity> = world
         .query_filtered::<(Entity, &Wallet), (Without<RetiredEntity>, Without<RemoveNetEntity>)>()
@@ -142,11 +164,14 @@ fn keep_wallets(world: &mut World) {
     }
     for (player, character) in playing {
         let name = wallet_entity_name(&character.id);
-        if named_entity(world, &name).is_some() {
+        if let Some(entity) = named_entity(world, &name) {
+            if refresh {
+                show_saved_balance(world, entity, &character.account);
+            }
             continue;
         }
-        match saved_balance(world, &character.id) {
-            Ok(balance) => {
+        match saved_balance(world, &character.account) {
+            Ok((balance, _)) => {
                 world.spawn((
                     Name::new(name),
                     Wallet {
@@ -164,11 +189,34 @@ fn keep_wallets(world: &mut World) {
     sync_item_privacy(world);
 }
 
+/// Sets the shown balance of wallet entity `entity` to `account`'s saved balance.
+fn show_saved_balance(world: &mut World, entity: Entity, account: &AccountId) {
+    match saved_balance(world, account) {
+        Ok((balance, _)) => {
+            if world.get::<Wallet>(entity).map(|wallet| wallet.balance) != Some(balance) {
+                world
+                    .get_mut::<Wallet>(entity)
+                    .expect("a wallet entity")
+                    .balance = balance;
+            }
+        }
+        Err(problem) => error!("the balance of {} cannot be read: {problem}", account.0),
+    }
+}
+
 /// The actor's body, character and wallet entity when it stands at a deposit spot in a safe area.
 fn at_deposit(
     world: &mut World,
     args: &CommandArgs,
-) -> Result<(Entity, CharacterId, Entity, retreat_gameplay_api::PlayerId), String> {
+) -> Result<
+    (
+        Entity,
+        PlayingCharacter,
+        Entity,
+        retreat_gameplay_api::PlayerId,
+    ),
+    String,
+> {
     let player = actor(world, args).map_err(|error| error.to_string())?;
     let (body, playing) = playing_body(world, player).ok_or("you are not playing a character")?;
     let feet = world
@@ -188,7 +236,7 @@ fn at_deposit(
     }
     let wallet = named_entity(world, &wallet_entity_name(&playing.id))
         .ok_or("your balance is not ready yet")?;
-    Ok((body, playing.id, wallet, player))
+    Ok((body, playing, wallet, player))
 }
 
 /// Answers a request's result: a refusal becomes the player's notice.
@@ -225,9 +273,9 @@ fn deposit_command(world: &mut World, args: &CommandArgs) -> CommandResult {
 }
 
 fn deposit(world: &mut World, args: &CommandArgs) -> Result<(), String> {
-    let (_, character, wallet, player) = at_deposit(world, args)?;
+    let (_, playing, wallet, player) = at_deposit(world, args)?;
     let gold = world.resource::<WalletConfig>().gold_base.clone();
-    let stacks: Vec<_> = container_items(world, &container_id(ContainerKind::Bag, &character))
+    let stacks: Vec<_> = container_items(world, &container_id(ContainerKind::Bag, &playing.id))
         .into_iter()
         .filter(|placed| placed.item.base == gold)
         .collect();
@@ -238,24 +286,22 @@ fn deposit(world: &mut World, args: &CommandArgs) -> Result<(), String> {
     if amount == 0 {
         return Err("you carry no gold".to_string());
     }
-    let balance = world
-        .get::<Wallet>(wallet)
-        .expect("a wallet entity")
-        .balance
-        + amount;
-    apply_item_transaction(
+    // The balance as saved now (another world may have changed it since it was shown).
+    let (now, seen) = saved_balance(world, &playing.account)?;
+    let balance = now + amount;
+    let result = apply_item_transaction(
         world,
         player,
         ItemTransaction {
             put: Vec::new(),
             remove: stacks.iter().map(|placed| placed.item.uid).collect(),
-            records: vec![(
-                wallet_key(&character),
-                WALLET_RECORD_VERSION,
-                wallet_record(balance),
-            )],
+            records: balance_change(&playing.account, seen, balance),
         },
-    )?;
+    );
+    if result.is_err() {
+        show_saved_balance(world, wallet, &playing.account);
+    }
+    result?;
     world
         .get_mut::<Wallet>(wallet)
         .expect("a wallet entity")
@@ -278,35 +324,44 @@ fn withdraw(world: &mut World, args: &CommandArgs, amount: u32) -> Result<(), St
     if amount == 0 {
         return Err("withdraw at least 1 gold".to_string());
     }
-    let (_, character, wallet, player) = at_deposit(world, args)?;
-    let balance = world
-        .get::<Wallet>(wallet)
-        .expect("a wallet entity")
-        .balance;
+    let (_, playing, wallet, player) = at_deposit(world, args)?;
+    let (balance, seen) = saved_balance(world, &playing.account)?;
     if u64::from(amount) > balance {
         return Err(format!("your balance is only {balance} gold"));
     }
     let gold = world.resource::<WalletConfig>().gold_base.clone();
     let left = balance - u64::from(amount);
-    add_to_container(
+    let result = add_to_container(
         world,
         player,
-        &container_id(ContainerKind::Bag, &character),
+        &container_id(ContainerKind::Bag, &playing.id),
         NewItems {
             unique: Vec::new(),
             stack: Some((gold, amount)),
         },
-        vec![(
-            wallet_key(&character),
-            WALLET_RECORD_VERSION,
-            wallet_record(left),
-        )],
-    )?;
+        balance_change(&playing.account, seen, left),
+    );
+    if result.is_err() {
+        show_saved_balance(world, wallet, &playing.account);
+    }
+    result?;
     world
         .get_mut::<Wallet>(wallet)
         .expect("a wallet entity")
         .balance = left;
     Ok(())
+}
+
+/// The account's new balance, written only if its record is still `seen`.
+fn balance_change(account: &AccountId, seen: Option<StoredRecord>, balance: u64) -> ExtraRecords {
+    ExtraRecords {
+        put: vec![(
+            wallet_key(account),
+            WALLET_RECORD_VERSION,
+            wallet_record(balance),
+        )],
+        expect_unchanged: vec![(wallet_key(account), seen)],
+    }
 }
 
 /// The wallet of this machine's player.

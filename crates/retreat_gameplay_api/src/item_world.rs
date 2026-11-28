@@ -520,8 +520,19 @@ pub struct ItemTransaction {
     pub put: Vec<PlacedItem>,
     /// Items that stop existing (merged into a stack, deposited).
     pub remove: Vec<ItemUid>,
-    /// More records written in the same batch (e.g. a balance), with their data version.
-    pub records: Vec<(RecordKey, u32, Value)>,
+    /// More records written in the same batch (e.g. a balance).
+    pub records: ExtraRecords,
+}
+
+/// Records written in the same batch as the items (a balance).
+#[derive(Debug, Clone, Default)]
+pub struct ExtraRecords {
+    /// New data, with its data version.
+    pub put: Vec<(RecordKey, u32, Value)>,
+    /// The batch is written only if each of these records is still what this server read (`None`:
+    /// still absent). For records another server may write too: an account's balance, which every
+    /// world shares.
+    pub expect_unchanged: Vec<(RecordKey, Option<StoredRecord>)>,
 }
 
 /// Applies `transaction` for `player`: saves every touched container (and the extra records) in one
@@ -585,7 +596,10 @@ pub fn apply_item_transaction(
         );
         written.push((id.clone(), data));
     }
-    for (key, version, data) in transaction.records {
+    for (key, seen) in transaction.records.expect_unchanged {
+        batch = batch.expect_unchanged(key, seen);
+    }
+    for (key, version, data) in transaction.records.put {
         batch = batch.put(key, version, data);
     }
     if let Some(mut store) = world.get_resource_mut::<RecordStore>()
@@ -643,7 +657,9 @@ fn changed_elsewhere(world: &mut World, key: &RecordKey) -> String {
         .find(|container| container_key(container) == *key)
         .cloned();
     let Some(container) = changed else {
-        return format!("record `{key}` was changed elsewhere; nothing changed, try again");
+        return "that changed on another of your characters at the same moment; nothing moved, \
+                try again"
+            .to_string();
     };
     if let Err(problem) = refresh_container_from_record(world, &container.id) {
         error!("{} cannot be read again: {problem}", container.id.0);
@@ -862,7 +878,7 @@ pub fn add_to_container(
     player: PlayerId,
     to: &ContainerId,
     new: NewItems,
-    records: Vec<(RecordKey, u32, Value)>,
+    records: ExtraRecords,
 ) -> Result<Vec<ItemUid>, String> {
     let container = container_of(world, to).ok_or_else(|| format!("{} is not open", to.0))?;
     let crate::ContainerLayout::Grid { columns, rows, .. } = container.layout else {

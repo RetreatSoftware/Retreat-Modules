@@ -116,7 +116,7 @@ fn give(app: &mut App, unique: &[&str], gold: u32) -> Vec<ItemUid> {
             unique: items,
             stack,
         },
-        Vec::new(),
+        ExtraRecords::default(),
     )
     .expect("fits")
 }

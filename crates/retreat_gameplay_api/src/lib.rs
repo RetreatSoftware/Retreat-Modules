@@ -102,11 +102,11 @@ pub use item::{
     ItemKind, ItemStack, ItemsLost, LastPickup, owns_weapon, reserve_of,
 };
 pub use item_world::{
-    CONTAINER_RECORD_VERSION, ContainerRecordSeen, ITEM_UID_BLOCK, ITEM_UID_RECORD_OWNER,
-    ITEM_UID_RECORD_PART, ItemNotice, ItemTransaction, NewItems, add_to_container,
-    allocate_item_uids, apply_item_transaction, body_of_character, character_level,
-    clear_item_notice, close_orphan_containers, container_entity, container_items, container_key,
-    container_of, container_record, in_safe_area, is_authority, items_from_record,
+    CONTAINER_RECORD_VERSION, ContainerRecordSeen, ExtraRecords, ITEM_UID_BLOCK,
+    ITEM_UID_RECORD_OWNER, ITEM_UID_RECORD_PART, ItemNotice, ItemTransaction, NewItems,
+    add_to_container, allocate_item_uids, apply_item_transaction, body_of_character,
+    character_level, clear_item_notice, close_orphan_containers, container_entity, container_items,
+    container_key, container_of, container_record, in_safe_area, is_authority, items_from_record,
     keep_character_containers, move_item, named_entity, open_container, placed_item, playing_body,
     playing_characters, put_request, read_container, refresh_container_from_record,
     remove_container, show_item_notice, spawn_container, spawn_item, sync_item_privacy,

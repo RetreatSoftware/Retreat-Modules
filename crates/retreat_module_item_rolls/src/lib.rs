@@ -25,9 +25,9 @@ use retreat_engine_api::{
     PanelAnchor, PanelDirection, SimulationRng, UiButtonEntry, UiPanel, UiPanels,
 };
 use retreat_gameplay_api::{
-    ContainerKind, GridItemCatalog, NewItems, SoloPlayer, actor, add_gameplay_contract,
-    add_to_container, clear_item_notice, container_id, local_player_id, playing_body, refused,
-    route_request, show_item_notice,
+    ContainerKind, ExtraRecords, GridItemCatalog, NewItems, SoloPlayer, actor,
+    add_gameplay_contract, add_to_container, clear_item_notice, container_id, local_player_id,
+    playing_body, refused, route_request, show_item_notice,
 };
 
 pub use roll::{Dice, pick_rarity, roll_item, roll_random};
@@ -123,7 +123,7 @@ fn give(world: &mut World, args: &CommandArgs, new: NewItems) -> CommandResult {
         return refused(world, args, "you are not playing a character");
     };
     let bag = container_id(ContainerKind::Bag, &playing.id);
-    match add_to_container(world, player, &bag, new, Vec::new()) {
+    match add_to_container(world, player, &bag, new, ExtraRecords::default()) {
         Ok(_) => {
             clear_item_notice(world, body);
             Ok(CommandOutcome::Continue)
