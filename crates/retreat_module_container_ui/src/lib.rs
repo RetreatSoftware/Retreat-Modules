@@ -81,6 +81,11 @@ impl Plugin for ContainerUiModulePlugin {
             .register_command("container_ui.open", "container_ui.open", open_command)
             .register_command("container_ui.close", "container_ui.close", close_command)
             .register_command(
+                "assert.items_visible",
+                "assert.items_visible <count>",
+                assert_visible_command,
+            )
+            .register_command(
                 "assert.item_notice",
                 "assert.item_notice <text...>",
                 assert_notice_command,
@@ -440,6 +445,24 @@ fn assert_notice_command(world: &mut World, args: &CommandArgs) -> CommandResult
     } else {
         Err(args.failure(format!(
             "the item notice is `{actual}`, expected `{expected}`"
+        )))
+    }
+}
+
+/// `assert.items_visible <count>`: how many items this machine knows of (a client knows only its
+/// own player's items: they are private).
+fn assert_visible_command(world: &mut World, args: &CommandArgs) -> CommandResult {
+    args.expect_count(1)?;
+    let expected: usize = args.parse(0, "count")?;
+    let actual = world
+        .query_filtered::<&retreat_gameplay_api::GridItem, (Without<RetiredEntity>, Without<RemoveNetEntity>)>()
+        .iter(world)
+        .count();
+    if actual == expected {
+        Ok(CommandOutcome::Continue)
+    } else {
+        Err(args.failure(format!(
+            "this machine knows {actual} items, expected {expected}"
         )))
     }
 }
