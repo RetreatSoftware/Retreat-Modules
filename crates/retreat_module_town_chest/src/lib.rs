@@ -4,21 +4,29 @@
 //! [`TownChestConfig::spare_rows`] empty rows below the lowest item (at least
 //! [`TownChestConfig::min_rows`]); a window shows [`TownChestConfig::visible_rows`] and scrolls.
 //!
-//! **Open while used.** `chest.open` (a player request, in a safe area within reach of a chest
-//! spot) opens the contract container `chest/<character>` with its saved items, private to the
-//! player; it closes on `chest.close`, when the character walks out of reach or leaves the safe area,
-//! and when the character stops playing. While closed its items exist only in the record, so a big
-//! chest costs nothing. Items move in and out with the bag's and the chest's drops (`chest.put <uid>
-//! <x> <y> <0|1>`); the container is marked city-only, so no move touches it outside a safe area.
+//! **One chest per account, in every world** (decided with the user 2026-11-28): every character
+//! of an account, in any world, uses the same chest. It is saved in this module's record part
+//! `town_chest` of `account/<id>` (no world in the key), on every change, in the contract's atomic
+//! item transaction. Every world server shares the records, so two characters of one account in
+//! two worlds may have the chest open at once: each transaction writes only if the chest's record
+//! is still what that server last saw (else nothing moves and the player is told to look again),
+//! and an open chest is read again every [`TownChestConfig::refresh_seconds`], so each window
+//! shows what the other world did. In one world an account plays one character at a time; a chest
+//! that is already open for another character of the account there is not opened twice.
 //!
-//! **Saved** in this module's record part `town_chest` of `character/<id>`, or of `account/<id>`
-//! when [`TownChestConfig::shared_by_account`] is on (one chest for all of an account's characters
-//! in the world), on every change, in the contract's atomic item transaction.
+//! **Open while used.** `chest.open` (a player request, in a safe area within reach of a chest
+//! spot) opens the contract container `chest/<character>` with the account's saved items, private
+//! to the player; it closes on `chest.close`, when the character walks out of reach or leaves the
+//! safe area, and when the character stops playing. While closed its items exist only in the
+//! record, so a big chest costs nothing. Items move in and out with the bag's and the chest's drops
+//! (`chest.put <uid> <x> <y> <0|1>`); the container is marked city-only, so no move touches it
+//! outside a safe area.
 //!
 //! A "Town chest" panel (Open / Close) shows while this machine's character stands at a chest spot.
 //! Assertions: `assert.chest_open`, `assert.chest_closed`, `assert.chest_items <count>`.
 
 use bevy::prelude::*;
+use retreat_engine_api::RecordStore;
 use retreat_engine_api::{
     AppCommandExt, AppNetExt, AppUiExt, CommandArgs, CommandOutcome, CommandResult, NetLocalClient,
     PanelAnchor, PanelDirection, UiButtonEntry, UiPanel, UiPanels,
@@ -26,10 +34,11 @@ use retreat_engine_api::{
 use retreat_gameplay_api::{
     CharacterSize, ContainerKind, ContainerLayout, GameplaySystems, ItemContainer, PlacedItem,
     PlayingCharacter, ServiceSpots, SoloPlayer, account_record_owner, actor, add_gameplay_contract,
-    character_record_owner, close_orphan_containers, container_entity, container_id,
-    container_items, in_safe_area, is_authority, load_container_items, local_player_id,
-    placed_size, playing_body, playing_characters, put_request, refused, remove_container,
+    close_orphan_containers, container_entity, container_id, container_items, container_key,
+    in_safe_area, is_authority, local_player_id, placed_size, playing_body, playing_characters,
+    put_request, read_container, refresh_container_from_record, refused, remove_container,
     route_request, show_item_notice, spawn_container, spawn_item, sync_item_privacy,
+    ticks_from_seconds,
 };
 
 /// This module's record part (and id).
@@ -37,7 +46,7 @@ pub const CHEST_RECORD_PART: &str = "town_chest";
 /// The `ServiceSpots` kind of a chest spot.
 pub const CHEST_SPOT_KIND: &str = "town_chest";
 
-/// Chest numbers (placeholders) and the scope (insert before adding the plugin to change).
+/// Chest numbers (placeholders; insert before adding the plugin to change).
 #[derive(Resource, Debug, Clone, PartialEq)]
 pub struct TownChestConfig {
     pub columns: u32,
@@ -47,8 +56,9 @@ pub struct TownChestConfig {
     pub spare_rows: u32,
     /// Rows a window shows at once.
     pub visible_rows: u32,
-    /// One chest for all characters of an account (in this world) instead of one per character.
-    pub shared_by_account: bool,
+    /// How often an open chest is read again, so it shows what the account's characters in other
+    /// worlds put in or took out.
+    pub refresh_seconds: f32,
 }
 
 impl Default for TownChestConfig {
@@ -58,7 +68,7 @@ impl Default for TownChestConfig {
             min_rows: 8,
             spare_rows: 2,
             visible_rows: 6,
-            shared_by_account: false,
+            refresh_seconds: 0.5,
         }
     }
 }
@@ -134,17 +144,13 @@ impl Plugin for TownChestModulePlugin {
     }
 }
 
-/// The chest container of `playing` with `rows` rows.
+/// The chest container of `playing` with `rows` rows: the account's chest, shown for this
+/// character.
 pub fn chest_container(
     config: &TownChestConfig,
     playing: &PlayingCharacter,
     rows: u32,
 ) -> ItemContainer {
-    let record_owner = if config.shared_by_account {
-        account_record_owner(&playing.account)
-    } else {
-        character_record_owner(&playing.id)
-    };
     ItemContainer {
         id: container_id(ContainerKind::Chest, &playing.id),
         kind: ContainerKind::Chest,
@@ -157,7 +163,7 @@ pub fn chest_container(
         character: playing.id.clone(),
         only_in_safe_area: true,
         drop_command: "chest.put".to_string(),
-        record_owner,
+        record_owner: account_record_owner(&playing.account),
         record_part: CHEST_RECORD_PART.to_string(),
     }
 }
@@ -173,13 +179,18 @@ fn at_chest(world: &World, body: Entity) -> bool {
     in_safe_area(world, body) && world.resource::<ServiceSpots>().near(CHEST_SPOT_KIND, feet)
 }
 
-/// Opens or closes as the rules say, and grows or shrinks open chests' rows.
-fn keep_chests(world: &mut World) {
+/// Opens or closes as the rules say, reads open chests again now and then (other worlds), and
+/// grows or shrinks open chests' rows.
+fn keep_chests(world: &mut World, mut ticks: Local<u64>) {
     if !is_authority(world) {
         return;
     }
     close_orphan_containers(world, ContainerKind::Chest);
     let config = world.resource::<TownChestConfig>().clone();
+    let timestep = world.resource::<Time<Fixed>>().timestep();
+    let every = ticks_from_seconds(config.refresh_seconds, timestep).max(1);
+    *ticks += 1;
+    let refresh = (*ticks).is_multiple_of(u64::from(every));
     for (player, playing) in playing_characters(world) {
         let id = container_id(ContainerKind::Chest, &playing.id);
         let Some(entity) = container_entity(world, &id) else {
@@ -191,6 +202,12 @@ fn keep_chests(world: &mut World) {
         if !at_chest(world, body) {
             remove_container(world, &id);
             continue;
+        }
+        if refresh && let Err(problem) = refresh_container_from_record(world, &id) {
+            error!(
+                "the town chest of {} cannot be read again: {problem}",
+                playing.account.0
+            );
         }
         let rows = chest_rows(&config, &container_items(world, &id));
         let wanted = chest_container(&config, &playing, rows);
@@ -222,8 +239,13 @@ fn open_command(world: &mut World, args: &CommandArgs) -> CommandResult {
     }
     let config = world.resource::<TownChestConfig>().clone();
     let probe = chest_container(&config, &playing, config.min_rows);
-    let items = match load_container_items(world, &probe) {
-        Ok(items) => items,
+    if let Some(other) = open_elsewhere_here(world, &probe) {
+        let why = format!("your town chest is open for {other}; close it there first");
+        show_item_notice(world, body, why);
+        return Ok(CommandOutcome::Continue);
+    }
+    let (seen, items) = match read_container(world, &probe) {
+        Ok(read) => read,
         Err(problem) => {
             error!("town chest of {} cannot be read: {problem}", playing.id.0);
             let why = "the chest cannot be opened now (its record cannot be read)";
@@ -232,11 +254,32 @@ fn open_command(world: &mut World, args: &CommandArgs) -> CommandResult {
         }
     };
     let rows = chest_rows(&config, &items);
-    spawn_container(world, chest_container(&config, &playing, rows), player);
+    spawn_container(
+        world,
+        chest_container(&config, &playing, rows),
+        player,
+        seen,
+    );
     for placed in items {
         spawn_item(world, placed, player);
     }
     Ok(CommandOutcome::Continue)
+}
+
+/// The character for whom this machine already shows the same chest record as `chest`, if any
+/// (one item must never be in the world twice).
+fn open_elsewhere_here(world: &mut World, chest: &ItemContainer) -> Option<String> {
+    if !world.contains_resource::<RecordStore>() {
+        return None;
+    }
+    let key = container_key(chest);
+    world
+        .query_filtered::<&ItemContainer, Without<retreat_engine_api::RemoveNetEntity>>()
+        .iter(world)
+        .find(|open| {
+            open.kind == ContainerKind::Chest && open.id != chest.id && container_key(open) == key
+        })
+        .map(|open| open.character.0.clone())
 }
 
 /// `chest.close`.

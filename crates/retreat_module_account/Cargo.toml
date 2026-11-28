@@ -6,7 +6,7 @@ edition.workspace = true
 publish.workspace = true
 
 [lib]
-test = false
+test = true
 doctest = false
 
 [dependencies]
@@ -22,7 +22,7 @@ id = "account"
 display_name = "Accounts and characters"
 summary = "Log in by name, keep several characters per world on the server, and pick one to play."
 plugin = "retreat_module_account::AccountModulePlugin"
-commands = ["account.login", "account.create", "account.play", "account.logout", "account.delete", "account.pick_next", "account.pick_previous", "account.play_picked", "account.delete_picked", "assert.account_characters", "assert.account_playing", "assert.account_screen"]
+commands = ["account.login", "account.world", "account.create", "account.play", "account.logout", "account.delete", "account.pick_next", "account.pick_previous", "account.play_picked", "account.delete_picked", "assert.account_characters", "assert.account_playing", "assert.account_screen"]
 requires = ["networking", "storage", "ui"]
 engine_api = "0.1"
 targets = ["native", "wasm"]

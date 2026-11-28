@@ -1,12 +1,13 @@
 //! The town chest with only Bevy and the contract crates: it opens only at a chest spot in a safe
 //! area, keeps its items in its record while closed, closes when the character walks away, grows
-//! its rows, can be shared by an account, and refuses moves outside the city. A hand-made bag
+//! its rows, is one chest for all of an account's characters in every world (two apps on one
+//! shared store are two world servers), and refuses moves outside the city. A hand-made bag
 //! stands in for the bag module.
 
 use bevy::prelude::*;
 use retreat_engine_api::{
-    CommandRegistry, CommandResult, RecordKey, RecordStore, RemoveNetEntity, SimulationRng,
-    run_command_line,
+    CommandRegistry, CommandResult, RecordKey, RecordStore, RemoveNetEntity,
+    SharedMemoryRecordBackend, SimulationRng, run_command_line,
 };
 use retreat_gameplay_api::*;
 use retreat_module_town_chest::*;
@@ -37,18 +38,28 @@ fn catalog() -> GridItemCatalog {
 }
 
 fn character() -> PlayingCharacter {
+    character_of_ada(1, "Ada")
+}
+
+/// Character `ada-<number>` of the account `ada`.
+fn character_of_ada(number: u32, name: &str) -> PlayingCharacter {
     PlayingCharacter {
-        id: CharacterId("ada-1".to_string()),
-        name: "Ada".to_string(),
+        id: CharacterId(format!("ada-{number}")),
+        name: name.to_string(),
         account: AccountId("ada".to_string()),
     }
 }
 
 fn app_with(config: TownChestConfig) -> App {
+    app_on(config, RecordStore::in_memory())
+}
+
+/// A world server whose records are `store` (several apps on one shared store are several worlds).
+fn app_on(config: TownChestConfig, store: RecordStore) -> App {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
         .init_resource::<CommandRegistry>()
-        .insert_resource(RecordStore::in_memory())
+        .insert_resource(store)
         .insert_resource(SimulationRng::from_seed(1))
         .insert_resource(catalog())
         .insert_resource(config)
@@ -78,19 +89,31 @@ fn chest_id() -> ContainerId {
 
 /// A playing body at `x` and a hand-made bag with `swords` swords.
 fn start(app: &mut App, x: f32, swords: usize) -> (Entity, Vec<ItemUid>) {
+    start_as(app, PlayerId(0), character(), x, swords)
+}
+
+/// `playing`, played by `player`, at `x` with a hand-made bag of `swords` swords.
+fn start_as(
+    app: &mut App,
+    player: PlayerId,
+    playing: PlayingCharacter,
+    x: f32,
+    swords: usize,
+) -> (Entity, Vec<ItemUid>) {
+    let bag = container_id(ContainerKind::Bag, &playing.id);
     let body = app
         .world_mut()
         .spawn((
-            Name::new("character_ada-1_1"),
-            PlayerId(0),
-            character(),
+            Name::new(format!("character_{}_1", playing.id.0)),
+            player,
+            playing.clone(),
             Transform::from_xyz(x, 1.0, 0.0),
         ))
         .id();
     spawn_container(
         app.world_mut(),
         ItemContainer {
-            id: bag_id(),
+            id: bag.clone(),
             kind: ContainerKind::Bag,
             title: "Bag".to_string(),
             layout: ContainerLayout::Grid {
@@ -98,13 +121,14 @@ fn start(app: &mut App, x: f32, swords: usize) -> (Entity, Vec<ItemUid>) {
                 rows: 6,
                 visible_rows: 0,
             },
-            character: character().id,
+            character: playing.id.clone(),
             only_in_safe_area: false,
             drop_command: "test_bag.put".to_string(),
-            record_owner: "character/ada-1".to_string(),
+            record_owner: character_record_owner(&playing.id),
             record_part: "test_bag".to_string(),
         },
-        PlayerId(0),
+        player,
+        None,
     );
     let sword = GridItem {
         uid: ItemUid(0),
@@ -117,8 +141,8 @@ fn start(app: &mut App, x: f32, swords: usize) -> (Entity, Vec<ItemUid>) {
     };
     let uids = add_to_container(
         app.world_mut(),
-        PlayerId(0),
-        &bag_id(),
+        player,
+        &bag,
         NewItems {
             unique: vec![sword; swords],
             stack: None,
@@ -250,12 +274,96 @@ fn outside_a_safe_area_the_chest_neither_opens_nor_takes_items() {
     ok(&mut app, "assert.chest_closed");
 }
 
+fn ticks(app: &mut App, count: usize) {
+    for _ in 0..count {
+        tick(app);
+    }
+}
+
+/// Enough ticks for an open chest to be read again (the default half second at 64 Hz is 32).
+const REFRESH_TICKS: usize = 40;
+
+/// The uids saved in a record of the contract's container format.
+fn saved_uids(store: &RecordStore, owner: &str, part: &str) -> Vec<u64> {
+    store
+        .read(&RecordKey::new(owner, part))
+        .unwrap()
+        .map(|record| {
+            record.data["items"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|item| item["uid"].as_u64().unwrap())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 #[test]
-fn a_shared_chest_is_saved_under_the_account() {
-    let mut app = app_with(TownChestConfig {
-        shared_by_account: true,
-        ..Default::default()
-    });
+fn two_worlds_with_the_chest_open_at_once_never_lose_or_copy_an_item() {
+    // Ada plays in world one, Ann (same account) in world two, at the same time.
+    let shared = SharedMemoryRecordBackend::default();
+    let config = TownChestConfig::default();
+    let mut one = app_on(config.clone(), RecordStore::new(Box::new(shared.clone())));
+    let mut two = app_on(config, RecordStore::new(Box::new(shared.clone())));
+    let (_, ada) = start_as(&mut one, PlayerId(0), character_of_ada(1, "Ada"), 0.0, 1);
+    let (_, ann) = start_as(&mut two, PlayerId(0), character_of_ada(2, "Ann"), 0.0, 1);
+    assert_ne!(ada[0], ann[0], "uids are unique across worlds");
+    ok(&mut one, "chest.open");
+    ok(&mut two, "chest.open");
+    // Ada stores her sword; Ann's window has not been read again yet and she drops on that spot.
+    ok(&mut one, &format!("chest.put {} 0 0 0", ada[0].0));
+    let why = refusal(&mut two, &format!("chest.put {} 0 0 0", ann[0].0));
+    assert!(
+        why.contains("changed by another of your characters"),
+        "{why}"
+    );
+    let ann_chest = container_id(ContainerKind::Chest, &CharacterId("ada-2".to_string()));
+    let ann_bag = container_id(ContainerKind::Bag, &CharacterId("ada-2".to_string()));
+    assert_eq!(
+        placed_item(two.world_mut(), ann[0])
+            .unwrap()
+            .place
+            .container,
+        ann_bag
+    );
+    // The refusal showed her the chest as it is now: Ada's sword.
+    assert_eq!(
+        placed_item(two.world_mut(), ada[0])
+            .unwrap()
+            .place
+            .container,
+        ann_chest
+    );
+    ok(&mut two, &format!("chest.put {} 1 0 0", ann[0].0));
+    ok(&mut two, "assert.chest_items 2");
+    // Ada's open window shows Ann's sword after a moment.
+    ticks(&mut one, REFRESH_TICKS);
+    ok(&mut one, "assert.chest_items 2");
+    // Ann takes Ada's sword into her bag; Ada's window loses it.
+    move_item(two.world_mut(), PlayerId(0), ada[0], &ann_bag, 3, 0, false).unwrap();
+    ticks(&mut one, REFRESH_TICKS);
+    ok(&mut one, "assert.chest_items 1");
+    assert!(
+        placed_item(one.world_mut(), ada[0]).is_none(),
+        "not in world one any more"
+    );
+    // Every item is saved exactly once.
+    let store = RecordStore::new(Box::new(shared));
+    assert_eq!(
+        saved_uids(&store, "account/ada", CHEST_RECORD_PART),
+        [ann[0].0]
+    );
+    assert_eq!(
+        saved_uids(&store, "character/ada-2", "test_bag"),
+        [ada[0].0]
+    );
+    assert!(saved_uids(&store, "character/ada-1", "test_bag").is_empty());
+}
+
+#[test]
+fn every_character_of_the_account_opens_the_same_chest() {
+    let mut app = app();
     let (_, uids) = start(&mut app, 0.0, 1);
     ok(&mut app, "chest.open");
     ok(&mut app, &format!("chest.put {} 0 0 0", uids[0].0));
@@ -272,6 +380,22 @@ fn a_shared_chest_is_saved_under_the_account() {
             .unwrap()
             .is_none()
     );
+    // Ann, another character of the account, standing at the chest too (a test only: in one world
+    // an account plays one character at a time) cannot open the same chest a second time here.
+    start_as(&mut app, PlayerId(1), character_of_ada(2, "Ann"), 0.5, 0);
+    app.world_mut()
+        .insert_resource(SoloPlayer(Some(PlayerId(1))));
+    let why = refusal(&mut app, "chest.open");
+    assert!(why.contains("open for ada-1"), "{why}");
+    // Once Ada closed it, Ann opens it and finds Ada's sword.
+    app.world_mut()
+        .insert_resource(SoloPlayer(Some(PlayerId(0))));
+    ok(&mut app, "chest.close");
+    tick(&mut app);
+    app.world_mut()
+        .insert_resource(SoloPlayer(Some(PlayerId(1))));
+    ok(&mut app, "chest.open");
+    ok(&mut app, "assert.chest_items 1");
 }
 /// Runs a player request that must be refused and returns the notice the player got (a refusal is
 /// the player's notice, not an error).

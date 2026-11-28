@@ -92,7 +92,8 @@ fn app(config: ItemRollsConfig, store: RecordStore, seed: u64) -> App {
         character(),
         Transform::default(),
     ));
-    spawn_container(
+    // Opened from its record, as the bag module does (a restart finds the saved bag).
+    open_container(
         app.world_mut(),
         ItemContainer {
             id: bag_id(),
@@ -110,7 +111,8 @@ fn app(config: ItemRollsConfig, store: RecordStore, seed: u64) -> App {
             record_part: "test_bag".to_string(),
         },
         PlayerId(0),
-    );
+    )
+    .unwrap();
     app
 }
 
@@ -194,7 +196,13 @@ fn uids_stay_unique_across_a_restart() {
     let store = first.world_mut().remove_resource::<RecordStore>().unwrap();
     let mut second = app(ItemRollsConfig::default(), store, 1);
     ok(&mut second, "items.grant sword common 1");
-    let after = bag(&mut second)[0].item.uid.0;
+    let after = bag(&mut second)
+        .iter()
+        .find(|placed| placed.item.base == "sword")
+        .expect("the sword was granted")
+        .item
+        .uid
+        .0;
     assert!(
         !before.contains(&after),
         "{after} was handed out before: {before:?}"

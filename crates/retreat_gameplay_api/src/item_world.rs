@@ -12,7 +12,20 @@
 //!
 //! **Unique ids** ([`allocate_item_uids`]): uids come from a counter whose reservation is saved
 //! (record `items` / `item_uids`) **before** any uid of the block is handed out, so a restart never
-//! hands out a uid twice; a crash only skips the rest of a block.
+//! hands out a uid twice; a crash only skips the rest of a block. Every world server of a game
+//! shares the records, so the reservation is written only if no other server reserved in between
+//! (it reads again and retries), and uids stay unique across worlds (items meet in the account's
+//! town chest).
+//!
+//! **Records several servers write** (decided 2026-11-28 with the user: one town chest for all of
+//! an account's characters in all worlds, so two world servers may have it open at once). Every
+//! open container remembers the record it was read from or last wrote ([`ContainerRecordSeen`],
+//! server only), and every transaction writes only if each touched container's record is still
+//! that one (`RecordBatch::expect_unchanged`). When another server changed it, nothing is written
+//! or changed, the container is made to match its record again ([`refresh_container_from_record`])
+//! and the player is told to look again. A module whose container another server may change also
+//! calls [`refresh_container_from_record`] now and then, so its window shows the other world's
+//! changes (the town chest does).
 //!
 //! These helpers take the `World` because they act for a command; they hold no state between ticks
 //! except the uid counter (a server-only resource, not simulation state).
@@ -22,8 +35,8 @@ use std::collections::BTreeMap;
 use bevy::prelude::*;
 use retreat_engine_api::serde_json::{self, Value, json};
 use retreat_engine_api::{
-    NetPrivateTo, RecordBatch, RecordKey, RecordStore, RemoveNetEntity, RemovePhysicsBody,
-    RetiredEntity,
+    NetPrivateTo, RecordBatch, RecordError, RecordKey, RecordStore, RemoveNetEntity,
+    RemovePhysicsBody, RetiredEntity, StoredRecord,
 };
 use serde::{Deserialize, Serialize};
 
@@ -35,6 +48,8 @@ use crate::{
 
 /// The data version of a saved container.
 pub const CONTAINER_RECORD_VERSION: u32 = 1;
+/// How often a uid reservation is tried again when another server reserved at the same moment.
+const UID_RESERVATION_ATTEMPTS: usize = 8;
 /// How many uids one saved reservation covers.
 pub const ITEM_UID_BLOCK: u64 = 1000;
 /// Where the uid reservation is saved.
@@ -52,6 +67,12 @@ pub struct ItemNotice {
 impl retreat_engine_api::NetState for ItemNotice {
     const ID: &'static str = "gameplay.item_notice";
 }
+
+/// The record an open container was read from or last wrote (`None`: there was no record). Only
+/// on the authoritative machine, never sent; see "Records several servers write" in the module
+/// docs.
+#[derive(Component, Debug, Clone, PartialEq)]
+pub struct ContainerRecordSeen(pub Option<StoredRecord>);
 
 /// An entity by its unique `Name` (retired ones excluded).
 pub fn named_entity(world: &mut World, name: &str) -> Option<Entity> {
@@ -220,41 +241,111 @@ pub fn items_from_record(data: &Value, container: &ContainerId) -> Result<Vec<Pl
         .collect())
 }
 
-/// The saved items of `container` (none when there are no records or no record yet). A record that
-/// cannot be read is an error naming the container: the caller must not overwrite it.
-pub fn load_container_items(
+/// The saved record of `container` and its items (none when there are no records or no record
+/// yet). A record that cannot be read is an error naming the container: the caller must not
+/// overwrite it.
+pub fn read_container(
     world: &World,
     container: &ItemContainer,
-) -> Result<Vec<PlacedItem>, String> {
+) -> Result<(Option<StoredRecord>, Vec<PlacedItem>), String> {
     let Some(store) = world.get_resource::<RecordStore>() else {
-        return Ok(Vec::new());
+        return Ok((None, Vec::new()));
     };
     let key = container_key(container);
     let record = store
         .read(&key)
         .map_err(|error| format!("{}: {error}", container.id.0))?;
     let Some(record) = record else {
-        return Ok(Vec::new());
+        return Ok((None, Vec::new()));
     };
     record
         .check_not_newer_than(&key, CONTAINER_RECORD_VERSION)
         .map_err(|error| format!("{}: {error}", container.id.0))?;
-    items_from_record(&record.data, &container.id)
-        .map_err(|error| format!("{}: {error}", container.id.0))
+    let items = items_from_record(&record.data, &container.id)
+        .map_err(|error| format!("{}: {error}", container.id.0))?;
+    Ok((Some(record), items))
 }
 
-/// Spawns a container entity (private to `player`).
-pub fn spawn_container(world: &mut World, container: ItemContainer, player: PlayerId) -> Entity {
+/// Spawns a container entity (private to `player`) that was read from `seen` (what
+/// [`read_container`] returned; `None` for a container without a record).
+pub fn spawn_container(
+    world: &mut World,
+    container: ItemContainer,
+    player: PlayerId,
+    seen: Option<StoredRecord>,
+) -> Entity {
     let name = container_entity_name(&container.id);
     world
         .spawn((
             Name::new(name),
             container,
+            ContainerRecordSeen(seen),
             NetPrivateTo {
                 client_id: player.0,
             },
         ))
         .id()
+}
+
+/// Makes open container `id` match its record again if another server changed the record (see
+/// the module docs): items gone from the record leave the world, new ones appear (private to the
+/// container's player), moved ones move. Returns whether anything changed. Authoritative machine
+/// only (a machine without records changes nothing).
+pub fn refresh_container_from_record(world: &mut World, id: &ContainerId) -> Result<bool, String> {
+    let Some(entity) = container_entity(world, id) else {
+        return Ok(false);
+    };
+    let Some(container) = world.get::<ItemContainer>(entity).cloned() else {
+        return Ok(false);
+    };
+    if world.get_resource::<RecordStore>().is_none() {
+        return Ok(false);
+    }
+    let (record, items) = read_container(world, &container)?;
+    let seen = world.get::<ContainerRecordSeen>(entity).map(|seen| &seen.0);
+    if seen == Some(&record) {
+        return Ok(false);
+    }
+    let player = PlayerId(
+        world
+            .get::<NetPrivateTo>(entity)
+            .map_or(0, |private| private.client_id),
+    );
+    let keep: Vec<ItemUid> = items.iter().map(|placed| placed.item.uid).collect();
+    for placed in container_items(world, id) {
+        if !keep.contains(&placed.item.uid)
+            && let Some(item) = named_entity(world, &item_entity_name(placed.item.uid))
+        {
+            world.entity_mut(item).insert(RemoveNetEntity);
+        }
+    }
+    for placed in items {
+        match named_entity(world, &item_entity_name(placed.item.uid)) {
+            Some(item) => {
+                let here = world.get::<ItemPlace>(item).map(|place| &place.container) == Some(id);
+                if !here {
+                    // Uids are unique across servers, so this means damaged records: never show one
+                    // item twice.
+                    error!(
+                        "item {} of the record of {} is also in another container here; left out",
+                        placed.item.uid.0, id.0
+                    );
+                    continue;
+                }
+                if world.get::<GridItem>(item) != Some(&placed.item) {
+                    world.entity_mut(item).insert(placed.item);
+                }
+                if world.get::<ItemPlace>(item) != Some(&placed.place) {
+                    world.entity_mut(item).insert(placed.place);
+                }
+            }
+            None => {
+                spawn_item(world, placed, player);
+            }
+        }
+    }
+    world.entity_mut(entity).insert(ContainerRecordSeen(record));
+    Ok(true)
 }
 
 /// Spawns an item entity (private to `player`).
@@ -372,21 +463,17 @@ pub fn allocate_item_uids(world: &mut World, count: u64) -> Result<Vec<ItemUid>,
         counter.next = 1;
     }
     if counter.next + count > counter.reserved_until {
-        let key = RecordKey::new(ITEM_UID_RECORD_OWNER, ITEM_UID_RECORD_PART);
         if let Some(mut store) = world.get_resource_mut::<RecordStore>() {
-            let saved = store
-                .read(&key)
-                .map_err(|error| format!("the item id counter cannot be read: {error}"))?
-                .and_then(|record| record.data.get("reserved_until").and_then(Value::as_u64))
-                .unwrap_or(1);
-            let start = counter.next.max(saved);
-            let until = start + count.max(ITEM_UID_BLOCK);
-            if let Err(error) = store.put(key, 1, json!({ "reserved_until": until })) {
-                world.insert_resource(counter);
-                return Err(format!("the item id counter cannot be saved: {error}"));
+            match reserve_item_uids(&mut store, counter.next, count) {
+                Ok((start, until)) => {
+                    counter.next = start;
+                    counter.reserved_until = until;
+                }
+                Err(problem) => {
+                    world.insert_resource(counter);
+                    return Err(problem);
+                }
             }
-            counter.next = start;
-            counter.reserved_until = until;
         } else {
             counter.reserved_until = counter.next + count.max(ITEM_UID_BLOCK);
         }
@@ -395,6 +482,35 @@ pub fn allocate_item_uids(world: &mut World, count: u64) -> Result<Vec<ItemUid>,
     counter.next += count;
     world.insert_resource(counter);
     Ok(uids)
+}
+
+/// Saves a new reservation of at least `count` uids from `next` on, after whatever any server
+/// reserved: `(start, until)`. Written only if nobody reserved since it was read (the record is
+/// shared by every world server), else read again.
+fn reserve_item_uids(store: &mut RecordStore, next: u64, count: u64) -> Result<(u64, u64), String> {
+    let key = RecordKey::new(ITEM_UID_RECORD_OWNER, ITEM_UID_RECORD_PART);
+    for _ in 0..UID_RESERVATION_ATTEMPTS {
+        let record = store
+            .read(&key)
+            .map_err(|error| format!("the item id counter cannot be read: {error}"))?;
+        let saved = record
+            .as_ref()
+            .and_then(|record| record.data.get("reserved_until").and_then(Value::as_u64))
+            .unwrap_or(1);
+        let start = next.max(saved);
+        let until = start + count.max(ITEM_UID_BLOCK);
+        let batch = RecordBatch::new()
+            .expect_unchanged(key.clone(), record)
+            .put(key.clone(), 1, json!({ "reserved_until": until }));
+        match store.write(batch) {
+            Ok(()) => return Ok((start, until)),
+            Err(RecordError::Conflict { .. }) => continue,
+            Err(error) => return Err(format!("the item id counter cannot be saved: {error}")),
+        }
+    }
+    Err(format!(
+        "the item id counter changed {UID_RESERVATION_ATTEMPTS} times while reserving; try again"
+    ))
 }
 
 /// A set of item changes that happens all at once (see the module docs).
@@ -410,7 +526,9 @@ pub struct ItemTransaction {
 
 /// Applies `transaction` for `player`: saves every touched container (and the extra records) in one
 /// atomic batch, then changes the world. Nothing changes when the save fails. New items are private
-/// to `player`.
+/// to `player`. When another server changed a touched container's record since this one read it,
+/// nothing is saved or changed, that container is made to match its record again and the error
+/// tells the player to look again.
 pub fn apply_item_transaction(
     world: &mut World,
     player: PlayerId,
@@ -438,9 +556,15 @@ pub fn apply_item_transaction(
         touch(&placed.place.container);
     }
     let mut batch = RecordBatch::new();
+    let mut written: Vec<(ContainerId, Value)> = Vec::new();
     for id in &touched {
         let container =
             container_of(world, id).ok_or_else(|| format!("container {} is not open", id.0))?;
+        let entity = container_entity(world, id).expect("container_of found it");
+        let seen = world
+            .get::<ContainerRecordSeen>(entity)
+            .map(|seen| seen.0.clone())
+            .ok_or_else(|| format!("container {} was not opened from its record", id.0))?;
         let mut items: Vec<PlacedItem> = container_items(world, id)
             .into_iter()
             .filter(|placed| !changed.contains(&placed.item.uid))
@@ -453,11 +577,13 @@ pub fn apply_item_transaction(
                 .cloned(),
         );
         items.sort_by_key(|placed| placed.item.uid);
-        batch = batch.put(
+        let data = container_record(&items);
+        batch = batch.expect_unchanged(container_key(&container), seen).put(
             container_key(&container),
             CONTAINER_RECORD_VERSION,
-            container_record(&items),
+            data.clone(),
         );
+        written.push((id.clone(), data));
     }
     for (key, version, data) in transaction.records {
         batch = batch.put(key, version, data);
@@ -465,9 +591,25 @@ pub fn apply_item_transaction(
     if let Some(mut store) = world.get_resource_mut::<RecordStore>()
         && !batch.is_empty()
     {
-        store
-            .write(batch)
-            .map_err(|error| format!("the items could not be saved, nothing changed: {error}"))?;
+        match store.write(batch) {
+            Ok(()) => {}
+            Err(RecordError::Conflict { key }) => return Err(changed_elsewhere(world, &key)),
+            Err(error) => {
+                return Err(format!(
+                    "the items could not be saved, nothing changed: {error}"
+                ));
+            }
+        }
+        for (id, data) in written {
+            if let Some(entity) = container_entity(world, &id) {
+                world
+                    .entity_mut(entity)
+                    .insert(ContainerRecordSeen(Some(StoredRecord {
+                        version: CONTAINER_RECORD_VERSION,
+                        data,
+                    })));
+            }
+        }
     }
     for uid in &transaction.remove {
         if let Some(entity) = named_entity(world, &item_entity_name(*uid)) {
@@ -490,6 +632,26 @@ pub fn apply_item_transaction(
         }
     }
     Ok(())
+}
+
+/// After a refused write: makes the open container saved at `key` match its record again and
+/// returns the player's message.
+fn changed_elsewhere(world: &mut World, key: &RecordKey) -> String {
+    let changed = world
+        .query_filtered::<&ItemContainer, (Without<RetiredEntity>, Without<RemoveNetEntity>)>()
+        .iter(world)
+        .find(|container| container_key(container) == *key)
+        .cloned();
+    let Some(container) = changed else {
+        return format!("record `{key}` was changed elsewhere; nothing changed, try again");
+    };
+    if let Err(problem) = refresh_container_from_record(world, &container.id) {
+        error!("{} cannot be read again: {problem}", container.id.0);
+    }
+    format!(
+        "the {} was changed by another of your characters; nothing moved, look again and retry",
+        container.title.to_lowercase()
+    )
 }
 
 /// Moves item `uid` to `(x, y, rotated)` of container `to`, for `player`: the one contract
@@ -591,8 +753,8 @@ pub fn open_container(
     container: ItemContainer,
     player: PlayerId,
 ) -> Result<(), String> {
-    let items = load_container_items(world, &container)?;
-    spawn_container(world, container, player);
+    let (seen, items) = read_container(world, &container)?;
+    spawn_container(world, container, player, seen);
     for placed in items {
         spawn_item(world, placed, player);
     }

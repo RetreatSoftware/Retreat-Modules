@@ -98,6 +98,7 @@ fn start(app: &mut App, bases: &[&str]) -> (Entity, Vec<ItemUid>) {
             record_part: "test_bag".to_string(),
         },
         PlayerId(0),
+        None,
     );
     app.world_mut().run_schedule(FixedUpdate);
     let catalog = catalog();

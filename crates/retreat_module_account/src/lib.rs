@@ -87,6 +87,11 @@ impl Plugin for AccountModulePlugin {
                 commands::login_command,
             )
             .register_command(
+                "account.world",
+                "account.world <world>",
+                commands::world_command,
+            )
+            .register_command(
                 "account.create",
                 "account.create <character name>",
                 commands::create_command,

@@ -95,6 +95,7 @@ fn start(app: &mut App, x: f32, gold: u32) -> Entity {
             record_part: "test_bag".to_string(),
         },
         PlayerId(0),
+        None,
     );
     if gold > 0 {
         add_to_container(

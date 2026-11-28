@@ -41,6 +41,33 @@ fn refuse(world: &mut World, args: &CommandArgs, player: PlayerId, why: String) 
     }
 }
 
+/// `account.world <world>`: which world this server is (the characters made and listed here),
+/// before anyone logs in. Every world server of a game opens the same records with its own world
+/// (a second world server's script starts with this line). Not for clients.
+pub(crate) fn world_command(world: &mut World, args: &CommandArgs) -> CommandResult {
+    args.expect_count(1)?;
+    let name: String = args.parse(0, "world")?;
+    if !world.contains_resource::<RecordStore>() {
+        return Err(args.failure(
+            "only the server chooses its world (this machine has no records: a network client)",
+        ));
+    }
+    let open = world
+        .query_filtered::<&AccountSession, Without<retreat_engine_api::RemoveNetEntity>>()
+        .iter(world)
+        .count();
+    if open > 0 {
+        return Err(args.failure(format!(
+            "{open} players are logged in; choose the world before anyone logs in"
+        )));
+    }
+    let mut config = world.resource::<AccountConfig>().clone();
+    config.world = name;
+    config.validate().map_err(|problem| args.failure(problem))?;
+    world.insert_resource(config);
+    Ok(CommandOutcome::Continue)
+}
+
 /// The session entity of the player a deciding command acts for.
 fn deciding_session(
     world: &mut World,

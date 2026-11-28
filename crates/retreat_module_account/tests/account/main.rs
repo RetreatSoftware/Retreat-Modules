@@ -6,16 +6,22 @@ use bevy::prelude::*;
 use retreat_engine_api::{
     CommandRegistry, CommandResult, NetClientIdentity, NetClientJoined, NetClientLeft,
     NetClientRejoined, NetCommandSender, NetIdentityCheck, NetIdentityDecision, NetIdentityRequest,
-    NetInputQueue, NetPlayerIds, RecordKey, RecordStore, RemoveNetEntity, run_command_line,
+    NetInputQueue, NetPlayerIds, RecordKey, RecordStore, RemoveNetEntity,
+    SharedMemoryRecordBackend, run_command_line,
 };
 use retreat_gameplay_api::*;
 use retreat_module_account::*;
 
 fn app() -> App {
+    app_on(RecordStore::in_memory())
+}
+
+/// A server whose records are `store` (apps on one shared store are the worlds of one game).
+fn app_on(store: RecordStore) -> App {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
         .init_resource::<CommandRegistry>()
-        .insert_resource(RecordStore::in_memory())
+        .insert_resource(store)
         .add_plugins(AccountModulePlugin);
     app
 }
@@ -204,6 +210,52 @@ fn records_keep_the_account_and_names_are_unique_per_world_ignoring_case() {
             .unwrap()
             .is_some()
     );
+}
+
+#[test]
+fn one_account_on_two_worlds_at_once_keeps_every_character_of_both() {
+    let shared = SharedMemoryRecordBackend::default();
+    let mut dev = app_on(RecordStore::new(Box::new(shared.clone())));
+    let mut two = app_on(RecordStore::new(Box::new(shared.clone())));
+    ok(&mut two, "account.world two");
+    ok(&mut dev, "account.login Alice");
+    ok(&mut two, "account.login Alice");
+    ok(&mut dev, "account.create Bob");
+    ok(&mut two, "account.create Cid");
+    ok(&mut dev, "account.create Ann");
+    ok(&mut dev, "assert.account_characters me Bob Ann");
+    ok(&mut two, "assert.account_characters me Cid");
+    // Each world wrote the account record the other had changed: nothing is lost, numbers are
+    // never reused, and a name is unique per world only.
+    ok(&mut two, "account.create Bob");
+    let account = RecordStore::new(Box::new(shared))
+        .read(&RecordKey::new("account/alice", "account"))
+        .unwrap()
+        .unwrap();
+    let listed: Vec<(String, String, String)> = account.data["characters"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| {
+            let text = |field: &str| c[field].as_str().unwrap().to_string();
+            (text("id"), text("name"), text("world"))
+        })
+        .collect();
+    let expected = [
+        ("alice-1", "Bob", "dev"),
+        ("alice-2", "Cid", "two"),
+        ("alice-3", "Ann", "dev"),
+        ("alice-4", "Bob", "two"),
+    ];
+    assert_eq!(
+        listed,
+        expected.map(|(id, name, world)| (id.into(), name.into(), world.into()))
+    );
+    // The world is chosen before anyone logs in, only where records are.
+    let error = failure(&mut dev, "account.world three");
+    assert!(error.contains("before anyone logs in"), "{error}");
+    let error = failure(&mut app(), "account.world Two");
+    assert!(error.contains("lowercase"), "{error}");
 }
 
 #[test]
