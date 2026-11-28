@@ -196,10 +196,13 @@ fn answer(world: &mut World, args: &CommandArgs, result: Result<(), String>) -> 
         Ok(()) => Ok(CommandOutcome::Continue),
         Err(why) => {
             let player = actor(world, args)?;
-            if let Some((body, _)) = playing_body(world, player) {
-                show_item_notice(world, body, why.clone());
-            }
-            refused(world, args, &why)
+            // A refusal is the player's notice (not an error); without a character there is no one
+            // to tell, which a script should hear about.
+            let Some((body, _)) = playing_body(world, player) else {
+                return refused(world, args, &why);
+            };
+            show_item_notice(world, body, why);
+            Ok(CommandOutcome::Continue)
         }
     }
 }

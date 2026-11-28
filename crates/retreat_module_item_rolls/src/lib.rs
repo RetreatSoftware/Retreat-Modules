@@ -127,7 +127,7 @@ fn give(world: &mut World, args: &CommandArgs, new: NewItems) -> CommandResult {
         Ok(_) => Ok(CommandOutcome::Continue),
         Err(why) => {
             show_item_notice(world, body, why.clone());
-            refused(world, args, &why)
+            Ok(CommandOutcome::Continue)
         }
     }
 }

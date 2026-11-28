@@ -135,11 +135,19 @@ fn ok(app: &mut App, line: &str) {
     run(app, line).unwrap_or_else(|error| panic!("`{line}` failed: {error}"));
 }
 
+/// Runs a player request that must be refused and returns the notice the player got (a refusal is
+/// the player's notice, not an error).
 fn refusal(app: &mut App, line: &str) -> String {
-    run(app, line)
-        .err()
-        .unwrap_or_else(|| panic!("`{line}` must be refused"))
-        .to_string()
+    let before = notice(app).map_or(0, |notice| notice.serial);
+    run(app, line).unwrap_or_else(|error| panic!("`{line}` failed: {error}"));
+    let after = notice(app).unwrap_or_else(|| panic!("`{line}` told the player nothing"));
+    assert!(after.serial > before, "`{line}` was not refused");
+    after.text
+}
+
+fn notice(app: &mut App) -> Option<ItemNotice> {
+    let world = app.world_mut();
+    world.query::<&ItemNotice>().iter(world).next().cloned()
 }
 
 fn slot(slot: EquipSlot) -> u32 {

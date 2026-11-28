@@ -657,7 +657,7 @@ pub fn put_request(
         Ok(()) => Ok(retreat_engine_api::CommandOutcome::Continue),
         Err(why) => {
             show_item_notice(world, body, why.clone());
-            crate::refused(world, args, &why)
+            Ok(retreat_engine_api::CommandOutcome::Continue)
         }
     }
 }

@@ -181,12 +181,7 @@ fn a_full_bag_gets_nothing_and_says_so() {
     let mut app = app(ItemRollsConfig::default(), RecordStore::in_memory(), 1);
     ok(&mut app, "items.grant_test 4");
     assert_eq!(bag(&mut app).len(), 4);
-    assert!(
-        run(&mut app, "items.grant_test 1")
-            .unwrap_err()
-            .to_string()
-            .contains("full")
-    );
+    assert!(refusal(&mut app, "items.grant_test 1").contains("full"));
     assert_eq!(bag(&mut app).len(), 4);
 }
 
@@ -225,4 +220,18 @@ fn clients_may_send_test_commands_only_when_tests_are_on() {
     };
     assert!(!allowed(false));
     assert!(allowed(true));
+}
+/// Runs a player request that must be refused and returns the notice the player got (a refusal is
+/// the player's notice, not an error).
+fn refusal(app: &mut App, line: &str) -> String {
+    let before = notice(app).map_or(0, |notice| notice.serial);
+    run(app, line).unwrap_or_else(|error| panic!("`{line}` failed: {error}"));
+    let after = notice(app).unwrap_or_else(|| panic!("`{line}` told the player nothing"));
+    assert!(after.serial > before, "`{line}` was not refused");
+    after.text
+}
+
+fn notice(app: &mut App) -> Option<ItemNotice> {
+    let world = app.world_mut();
+    world.query::<&ItemNotice>().iter(world).next().cloned()
 }

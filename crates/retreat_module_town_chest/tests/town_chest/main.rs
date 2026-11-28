@@ -153,7 +153,7 @@ fn tick(app: &mut App) {
 fn the_chest_opens_only_at_a_chest_spot() {
     let mut app = app();
     let (body, _) = start(&mut app, 5.0, 0);
-    let refusal = run(&mut app, "chest.open").unwrap_err().to_string();
+    let refusal = refusal(&mut app, "chest.open");
     assert!(refusal.contains("walk up to a town chest"), "{refusal}");
     app.world_mut()
         .get_mut::<Transform>(body)
@@ -246,7 +246,7 @@ fn outside_a_safe_area_the_chest_neither_opens_nor_takes_items() {
     app.world_mut()
         .entity_mut(body)
         .insert(InArea(AreaId("dungeon".to_string())));
-    assert!(run(&mut app, "chest.open").is_err());
+    assert!(refusal(&mut app, "chest.open").contains("walk up to a town chest"));
     ok(&mut app, "assert.chest_closed");
 }
 
@@ -272,4 +272,18 @@ fn a_shared_chest_is_saved_under_the_account() {
             .unwrap()
             .is_none()
     );
+}
+/// Runs a player request that must be refused and returns the notice the player got (a refusal is
+/// the player's notice, not an error).
+fn refusal(app: &mut App, line: &str) -> String {
+    let before = notice(app).map_or(0, |notice| notice.serial);
+    run(app, line).unwrap_or_else(|error| panic!("`{line}` failed: {error}"));
+    let after = notice(app).unwrap_or_else(|| panic!("`{line}` told the player nothing"));
+    assert!(after.serial > before, "`{line}` was not refused");
+    after.text
+}
+
+fn notice(app: &mut App) -> Option<ItemNotice> {
+    let world = app.world_mut();
+    world.query::<&ItemNotice>().iter(world).next().cloned()
 }

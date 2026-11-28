@@ -15,7 +15,7 @@
 //! character's level is below it); the bag's footer the carried gold and the safe balance; the
 //! equipment's footer the level. Equipment slots are laid out by [`equipment_slots`].
 //!
-//! **Notices** (the contract's `ItemNotice`, e.g. "needs level 5"): shown at the bottom of the view
+//! **Notices** (the contract's `ItemNotice`, e.g. "needs level 5"; `assert.item_notice <text>`): shown at the bottom of the view
 //! for [`ContainerUiConfig::notice_seconds`].
 //!
 //! Render-only: nothing here changes the simulation.
@@ -80,6 +80,11 @@ impl Plugin for ContainerUiModulePlugin {
             .register_command("container_ui.toggle", "container_ui.toggle", toggle_command)
             .register_command("container_ui.open", "container_ui.open", open_command)
             .register_command("container_ui.close", "container_ui.close", close_command)
+            .register_command(
+                "assert.item_notice",
+                "assert.item_notice <text...>",
+                assert_notice_command,
+            )
             .register_action(InputAction {
                 id: "container_ui_toggle",
                 command_line: "container_ui.toggle",
@@ -410,5 +415,31 @@ fn show_notice(world: &mut World, mut last: Local<Option<(u32, f32)>>) {
             },
         )
         .expect("registered");
+    }
+}
+
+/// `assert.item_notice <text...>`: the last item notice of this machine's character is this text
+/// (a refused move, a full bag; refusals are notices, not errors).
+fn assert_notice_command(world: &mut World, args: &CommandArgs) -> CommandResult {
+    let expected = args.rest(0).join(" ");
+    if expected.is_empty() {
+        return Err(args.failure("expected the notice text"));
+    }
+    let player = local_player_id(
+        *world.resource::<NetLocalClient>(),
+        *world.resource::<SoloPlayer>(),
+    )
+    .ok_or_else(|| args.failure("this machine has no player"))?;
+    let (body, _) = playing_body(world, player)
+        .ok_or_else(|| args.failure("this machine's player is not playing a character"))?;
+    let actual = world
+        .get::<ItemNotice>(body)
+        .map_or(String::new(), |notice| notice.text.clone());
+    if actual == expected {
+        Ok(CommandOutcome::Continue)
+    } else {
+        Err(args.failure(format!(
+            "the item notice is `{actual}`, expected `{expected}`"
+        )))
     }
 }

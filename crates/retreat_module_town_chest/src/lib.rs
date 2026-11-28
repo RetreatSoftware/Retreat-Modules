@@ -218,7 +218,7 @@ fn open_command(world: &mut World, args: &CommandArgs) -> CommandResult {
     if !at_chest(world, body) {
         let why = "walk up to a town chest in the city to open it";
         show_item_notice(world, body, why);
-        return refused(world, args, why);
+        return Ok(CommandOutcome::Continue);
     }
     let config = world.resource::<TownChestConfig>().clone();
     let probe = chest_container(&config, &playing, config.min_rows);
@@ -228,7 +228,7 @@ fn open_command(world: &mut World, args: &CommandArgs) -> CommandResult {
             error!("town chest of {} cannot be read: {problem}", playing.id.0);
             let why = "the chest cannot be opened now (its record cannot be read)";
             show_item_notice(world, body, why);
-            return refused(world, args, why);
+            return Ok(CommandOutcome::Continue);
         }
     };
     let rows = chest_rows(&config, &items);

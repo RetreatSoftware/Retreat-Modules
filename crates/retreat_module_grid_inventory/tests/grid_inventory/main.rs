@@ -177,9 +177,7 @@ fn a_move_turns_an_item_and_a_blocked_one_tells_the_player() {
         (sword.place.x, sword.place.y, sword.place.rotated),
         (1, 2, true)
     );
-    let refusal = run(&mut app, &format!("bag.put {} 2 1 0", uids[0].0))
-        .unwrap_err()
-        .to_string();
+    let refusal = refusal(&mut app, &format!("bag.put {} 2 1 0", uids[0].0));
     assert!(refusal.contains("does not fit"), "{refusal}");
     let notice = app.world().get::<ItemNotice>(body).unwrap();
     assert!(notice.text.contains("does not fit"));
@@ -230,15 +228,13 @@ fn gold_stacks_merge_on_a_drop_and_split_off() {
     let quantities: Vec<u32> = bag(&mut app).iter().map(|p| p.item.quantity).collect();
     assert_eq!(quantities, [100, 50]);
     assert!(
-        run(
+        refusal(
             &mut app,
             &format!(
                 "bag.put {} {} {} 0",
                 half.item.uid.0, full.place.x, full.place.y
             )
         )
-        .unwrap_err()
-        .to_string()
         .contains("stack is full")
     );
     ok(&mut app, "assert.bag_items 2");
@@ -260,4 +256,18 @@ fn a_client_only_sends_its_request_to_the_server() {
         (0, 0),
         "the client moved nothing"
     );
+}
+/// Runs a player request that must be refused and returns the notice the player got (a refusal is
+/// the player's notice, not an error).
+fn refusal(app: &mut App, line: &str) -> String {
+    let before = notice(app).map_or(0, |notice| notice.serial);
+    run(app, line).unwrap_or_else(|error| panic!("`{line}` failed: {error}"));
+    let after = notice(app).unwrap_or_else(|| panic!("`{line}` told the player nothing"));
+    assert!(after.serial > before, "`{line}` was not refused");
+    after.text
+}
+
+fn notice(app: &mut App) -> Option<ItemNotice> {
+    let world = app.world_mut();
+    world.query::<&ItemNotice>().iter(world).next().cloned()
 }
