@@ -77,6 +77,8 @@ impl Plugin for ContainerUiModulePlugin {
         add_gameplay_contract(app);
         app.init_resource::<ContainerUiConfig>()
             .init_resource::<ContainerWindows>()
+            // The engine draws it; a headless test app without the engine UI still has the windows.
+            .init_resource::<UiGrids>()
             .register_command("container_ui.toggle", "container_ui.toggle", toggle_command)
             .register_command("container_ui.open", "container_ui.open", open_command)
             .register_command("container_ui.close", "container_ui.close", close_command)
