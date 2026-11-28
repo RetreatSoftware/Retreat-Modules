@@ -6,7 +6,7 @@
 
 use bevy::prelude::*;
 use retreat_engine_api::{
-    CommandRegistry, CommandResult, RecordKey, RecordStore, RemoveNetEntity,
+    CommandRegistry, CommandResult, RecordKey, RecordStore, RemoveNetEntity, RetiredEntity,
     SharedMemoryRecordBackend, SimulationRng, run_command_line,
 };
 use retreat_gameplay_api::*;
@@ -274,6 +274,23 @@ fn outside_a_safe_area_the_chest_neither_opens_nor_takes_items() {
     ok(&mut app, "assert.chest_closed");
 }
 
+/// What the engine does with a removed entity: keeps it a while, retired.
+fn retire_removed(app: &mut App) {
+    let removed: Vec<Entity> = app
+        .world_mut()
+        .query_filtered::<Entity, With<RemoveNetEntity>>()
+        .iter(app.world())
+        .collect();
+    for entity in removed {
+        app.world_mut()
+            .entity_mut(entity)
+            .remove::<RemoveNetEntity>()
+            .insert(RetiredEntity {
+                since: std::time::Duration::ZERO,
+            });
+    }
+}
+
 fn ticks(app: &mut App, count: usize) {
     for _ in 0..count {
         tick(app);
@@ -387,11 +404,12 @@ fn every_character_of_the_account_opens_the_same_chest() {
         .insert_resource(SoloPlayer(Some(PlayerId(1))));
     let why = refusal(&mut app, "chest.open");
     assert!(why.contains("open for ada-1"), "{why}");
-    // Once Ada closed it, Ann opens it and finds Ada's sword.
+    // Once Ada closed it, Ann opens it and finds Ada's sword. The engine keeps a removed entity a
+    // while as retired (here by hand), and a retired chest does not count as open.
     app.world_mut()
         .insert_resource(SoloPlayer(Some(PlayerId(0))));
     ok(&mut app, "chest.close");
-    tick(&mut app);
+    retire_removed(&mut app);
     app.world_mut()
         .insert_resource(SoloPlayer(Some(PlayerId(1))));
     ok(&mut app, "chest.open");

@@ -267,14 +267,18 @@ fn open_command(world: &mut World, args: &CommandArgs) -> CommandResult {
 }
 
 /// The character for whom this machine already shows the same chest record as `chest`, if any
-/// (one item must never be in the world twice).
+/// (one item must never be in the world twice). A closed chest stays a while as a removed or
+/// retired entity; it does not count.
 fn open_elsewhere_here(world: &mut World, chest: &ItemContainer) -> Option<String> {
     if !world.contains_resource::<RecordStore>() {
         return None;
     }
     let key = container_key(chest);
     world
-        .query_filtered::<&ItemContainer, Without<retreat_engine_api::RemoveNetEntity>>()
+        .query_filtered::<&ItemContainer, (
+            Without<retreat_engine_api::RemoveNetEntity>,
+            Without<retreat_engine_api::RetiredEntity>,
+        )>()
         .iter(world)
         .find(|open| {
             open.kind == ContainerKind::Chest && open.id != chest.id && container_key(open) == key
