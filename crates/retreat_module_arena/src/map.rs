@@ -1,7 +1,7 @@
 //! What a map is, and the pure rules a map must satisfy.
 
 use bevy::prelude::*;
-use retreat_gameplay_api::{CharacterSize, MAX_PLAYERS, PickupSpot, SpawnPoint};
+use retreat_gameplay_api::{Area, CharacterSize, MAX_PLAYERS, MapAreas, PickupSpot, SpawnPoint};
 
 /// Surfaces closer than this are touching, not overlapping (metres).
 const TOUCH_TOLERANCE: f32 = 1.0e-3;
@@ -47,6 +47,9 @@ pub struct ArenaMap {
     pub spawn_points: Vec<SpawnPoint>,
     /// Where things to pick up may appear.
     pub pickup_spots: Vec<PickupSpot>,
+    /// The map's areas (city, dungeons) with their rules; empty for a map without areas. When there
+    /// are areas, every spawn point lies in one.
+    pub areas: Vec<Area>,
 }
 
 /// Why a character cannot appear at `spawn`, or `None` when it can: its bounding box (a little
@@ -107,6 +110,26 @@ pub fn validate_map(map: &ArenaMap) -> Vec<String> {
             .any(|other| other.feet.distance(spawn.feet) < 2.0 * CharacterSize::default().radius);
         if too_close {
             problems.push(format!("spawn point {index} overlaps an earlier one"));
+        }
+    }
+    let areas = MapAreas(map.areas.clone());
+    problems.extend(areas.problems());
+    if !areas.0.is_empty() {
+        for (index, spawn) in map.spawn_points.iter().enumerate() {
+            if areas.at(spawn.feet).is_none() {
+                problems.push(format!(
+                    "spawn point {index} at {} is in no area",
+                    spawn.feet
+                ));
+            }
+        }
+        if let Some(home) = areas.home()
+            && MapAreas::spawn_points_in(&map.spawn_points, home).is_empty()
+        {
+            problems.push(format!(
+                "the home area `{}` has no spawn point for new characters",
+                home.id.0
+            ));
         }
     }
     for (index, spot) in map.pickup_spots.iter().enumerate() {

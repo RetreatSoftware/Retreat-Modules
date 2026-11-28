@@ -140,3 +140,63 @@ fn every_pickup_spot_is_reachable_ground_and_a_bad_one_is_named() {
         "{problems:?}"
     );
 }
+
+#[test]
+fn the_crawler_city_is_valid_with_a_safe_home_city_and_a_far_placeholder_dungeon() {
+    let map = crawler_city_map();
+    assert_eq!(validate_map(&map), Vec::<String>::new());
+    let areas = retreat_gameplay_api::MapAreas(map.areas.clone());
+    let city = areas.get("city").expect("a city area");
+    assert!(city.home && city.rules.safe && !city.rules.pvp);
+    let dungeon = areas.get("dungeon_placeholder").expect("a dungeon area");
+    assert!(!dungeon.rules.safe);
+    assert!(
+        dungeon.min.x - city.max.x > 400.0,
+        "the areas are far apart"
+    );
+    let home_points = retreat_gameplay_api::MapAreas::spawn_points_in(&map.spawn_points, city);
+    assert!(
+        home_points.len() >= MAX_PLAYERS,
+        "everyone can start in the city"
+    );
+    assert!(
+        !retreat_gameplay_api::MapAreas::spawn_points_in(&map.spawn_points, dungeon).is_empty()
+    );
+    assert!(
+        map.areas
+            .iter()
+            .all(|area| area.contains(Vec3::new(area.min.x, 0.0, area.min.y)))
+    );
+}
+
+#[test]
+fn a_map_with_areas_needs_every_spawn_point_inside_one_and_a_single_home() {
+    let mut map = crawler_city_map();
+    map.spawn_points.push(at(200.0, 0.0, 0.0));
+    let problems = validate_map(&map);
+    assert!(
+        problems.iter().any(|p| p.contains("is in no area")),
+        "{problems:?}"
+    );
+    let mut map = crawler_city_map();
+    map.areas[1].home = true;
+    let problems = validate_map(&map);
+    assert!(
+        problems.iter().any(|p| p.contains("2 home areas")),
+        "{problems:?}"
+    );
+    let mut map = crawler_city_map();
+    map.areas[0].rules.pvp = true;
+    let problems = validate_map(&map);
+    assert!(
+        problems.iter().any(|p| p.contains("cannot allow PvP")),
+        "{problems:?}"
+    );
+    let mut map = crawler_city_map();
+    map.areas[1].min = Vec2::new(30.0, -10.0);
+    let problems = validate_map(&map);
+    assert!(
+        problems.iter().any(|p| p.contains("overlap")),
+        "{problems:?}"
+    );
+}

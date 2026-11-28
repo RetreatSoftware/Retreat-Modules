@@ -3,37 +3,57 @@
 use bevy::prelude::*;
 use retreat_engine_api::{NetClientJoined, NetClientLeft, PhysicsBody, RemovePhysicsBody};
 use retreat_gameplay_api::{
-    CharacterSize, LookAngles, MAX_PLAYERS, PlayerId, SpawnPoints, choose_spawn_point,
+    CharacterSize, LookAngles, MAX_PLAYERS, PlayerId, SpawnPoint, SpawnPoints, choose_spawn_point,
     player_entity_name,
 };
 
 const CHARACTER_COLOR: Color = Color::srgb(0.9, 0.35, 0.25);
 
-/// Spawns the character of `player`. The error says why it cannot exist.
+/// Spawns the character of `player` at the spawn point farthest from the other characters. The
+/// error says why it cannot exist.
 pub fn spawn_character(world: &mut World, player: PlayerId) -> Result<(), String> {
+    let occupied = occupied_feet(world);
+    let points = &world.resource::<SpawnPoints>().0;
+    let Some(index) = choose_spawn_point(points, &occupied) else {
+        return Err("there are no spawn points; load a map first".to_string());
+    };
+    let spawn = points[index];
+    spawn_character_at(world, player, spawn).map(|_| ())
+}
+
+/// Where the feet of every character are.
+pub(crate) fn occupied_feet(world: &mut World) -> Vec<Vec3> {
+    let size = *world.resource::<CharacterSize>();
+    let mut characters = world.query_filtered::<&Transform, With<PlayerId>>();
+    characters
+        .iter(world)
+        .map(|transform| size.feet(transform.translation))
+        .collect()
+}
+
+/// Spawns the character of `player` with its feet at `spawn`, looking its way; returns the body.
+/// The error says why it cannot exist.
+pub fn spawn_character_at(
+    world: &mut World,
+    player: PlayerId,
+    spawn: SpawnPoint,
+) -> Result<Entity, String> {
     let name = player_entity_name(player);
     let size = *world.resource::<CharacterSize>();
-    let mut existing = world.query::<(&Name, Option<&PlayerId>, Option<&Transform>)>();
-    let mut occupied = Vec::new();
+    let mut existing = world.query::<(&Name, Option<&PlayerId>)>();
     let mut players = 0;
-    for (found, other, transform) in existing.iter(world) {
+    for (found, other) in existing.iter(world) {
         // A character that left keeps its name for the engine's rollback window.
         if found.as_str() == name {
             return Err(format!("an entity named `{name}` already exists"));
         }
         if other.is_some() {
             players += 1;
-            occupied.extend(transform.map(|t| size.feet(t.translation)));
         }
     }
     if players >= MAX_PLAYERS {
         return Err(format!("there are already {MAX_PLAYERS} players"));
     }
-    let points = &world.resource::<SpawnPoints>().0;
-    let Some(index) = choose_spawn_point(points, &occupied) else {
-        return Err("there are no spawn points; load a map first".to_string());
-    };
-    let spawn = points[index];
     let mesh = capsule_mesh(world, size);
     let mut character = world.spawn((
         Name::new(name),
@@ -48,7 +68,7 @@ pub fn spawn_character(world: &mut World, player: PlayerId) -> Result<(), String
     if let Some(mesh) = mesh {
         character.insert(mesh);
     }
-    Ok(())
+    Ok(character.id())
 }
 
 /// A visible capsule, or nothing in an app without mesh assets.

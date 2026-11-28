@@ -39,8 +39,14 @@
 //! | [`ItemsLost`] | inventory | loot |
 //! | [`HealRequested`] | inventory | health |
 //! | [`MatchEnded`], [`MatchRestarted`] | match | every module with per-match state |
+//! | [`PlayingCharacter`] (component, on a body) | spawning, from [`CharacterEntered`] | HUD, every module that saves per character |
+//! | [`CharacterEntered`], [`CharacterLeft`] | account | spawning |
+//! | [`MapAreas`] (resource) | the map module | areas, spawning |
+//! | [`InArea`] (component) | areas | HUD, later PvP rules and portals |
 
+mod account;
 mod acting;
+mod area;
 mod damage;
 mod health;
 mod item;
@@ -61,7 +67,12 @@ mod weapon;
 use bevy::prelude::*;
 use retreat_engine_api::{AppNetStateExt, InputActionSystems, SoundEvents, add_net_contract};
 
+pub use account::{
+    AccountId, CharacterEntered, CharacterId, CharacterLeft, PlayingCharacter,
+    account_record_owner, character_record_owner,
+};
 pub use acting::{actor, character_of, issue, refused};
+pub use area::{Area, AreaId, AreaRules, InArea, MapAreas};
 pub use damage::{
     DamageApplied, DamageCause, DamageRequested, PlayerDied, PlayerFired, PlayerRespawned,
 };
@@ -113,6 +124,11 @@ pub fn add_gameplay_contract(app: &mut App) {
         .register_net_state::<KillLog>()
         .register_net_state::<Inventory>()
         .register_net_state::<LastPickup>()
+        .register_net_state::<PlayingCharacter>()
+        .register_net_state::<InArea>()
+        .add_message::<CharacterEntered>()
+        .add_message::<CharacterLeft>()
+        .init_resource::<MapAreas>()
         .init_resource::<ItemCatalog>()
         .add_message::<GrantRequested>()
         .add_message::<ItemsLost>()

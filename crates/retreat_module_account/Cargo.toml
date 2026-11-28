@@ -1,0 +1,29 @@
+[package]
+name = "retreat_module_account"
+description = "Retreat module: dev login by name, an account with several characters per world, create, list, play, log out and delete characters, saved in the server's records."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lib]
+test = false
+doctest = false
+
+[dependencies]
+bevy.workspace = true
+retreat_engine_api.workspace = true
+retreat_gameplay_api.workspace = true
+serde.workspace = true
+
+# Module manifest (schema in Retreat-Modules/CLAUDE.md).
+[package.metadata.retreat]
+manifest_version = 1
+id = "account"
+display_name = "Accounts and characters"
+summary = "Log in by name, keep several characters per world on the server, and pick one to play."
+plugin = "retreat_module_account::AccountModulePlugin"
+commands = ["account.login", "account.create", "account.play", "account.logout", "account.delete", "account.pick_next", "account.pick_previous", "account.play_picked", "account.delete_picked", "assert.account_characters", "assert.account_playing", "assert.account_screen"]
+requires = ["networking", "storage", "ui"]
+engine_api = "0.1"
+targets = ["native", "wasm"]
+network_role = "both"

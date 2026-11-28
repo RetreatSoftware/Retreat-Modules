@@ -1,0 +1,27 @@
+[package]
+name = "retreat_module_areas"
+description = "Retreat module: the map's areas (city, dungeons) with their rules; every character is in exactly one area and can be moved between areas."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lib]
+test = false
+doctest = false
+
+[dependencies]
+bevy.workspace = true
+retreat_engine_api.workspace = true
+retreat_gameplay_api.workspace = true
+
+# Module manifest (schema in Retreat-Modules/CLAUDE.md).
+[package.metadata.retreat]
+manifest_version = 1
+id = "areas"
+display_name = "Areas"
+summary = "Keeps every character in exactly one area of the map (safe city, dungeons) and moves characters between areas."
+plugin = "retreat_module_areas::AreasModulePlugin"
+commands = ["areas.move", "areas.list", "assert.area"]
+requires = ["physics", "ui"]
+engine_api = "0.1"
+targets = ["native", "wasm"]

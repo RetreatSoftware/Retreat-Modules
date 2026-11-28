@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use retreat_engine_api::{
     CommandRegistry, CommandResult, PhysicsBody, PhysicsBodyKind, PhysicsShape, run_command_line,
 };
-use retreat_gameplay_api::SpawnPoints;
+use retreat_gameplay_api::{MapAreas, SpawnPoints};
 use retreat_module_arena::*;
 
 fn module_app() -> App {
@@ -57,6 +57,20 @@ fn load_builds_every_piece_as_a_fixed_box_where_the_map_says() {
     }
     assert_eq!(app.world().resource::<SpawnPoints>().0, map.spawn_points);
     assert_eq!(app.world().resource::<LoadedArena>().0, "graybox");
+    assert!(
+        app.world().resource::<MapAreas>().0.is_empty(),
+        "the arena has no areas"
+    );
+}
+
+#[test]
+fn loading_the_crawler_city_publishes_its_areas() {
+    let mut app = module_app();
+    run(&mut app, "arena.load crawler_city").expect("valid command");
+    let areas = &app.world().resource::<MapAreas>().0;
+    let ids: Vec<&str> = areas.iter().map(|area| area.id.0.as_str()).collect();
+    assert_eq!(ids, ["city", "dungeon_placeholder"]);
+    assert_eq!(piece_count(&mut app), crawler_city_map().pieces.len());
 }
 
 #[test]
