@@ -1,36 +1,34 @@
-# Every module must build and pass its tests natively and build for the browser (wasm32).
+# Fast checks of every module on every push.
+# Only the fast checks run here (decided with the user 2026-11-28): formatting, lints, tests and
+# the wasm32 build. Snapshot scripts, network, browser and other end-to-end checks are local
+# gates run before every commit (see CLAUDE.md), not CI.
 name: ci
 
 on:
   push:
-  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  native:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
+          targets: wasm32-unknown-unknown
       - name: Install Bevy's Linux system libraries
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
-      - run: cargo test --workspace
+      - run: cargo test --workspace 
+      - run: cargo check --workspace --target wasm32-unknown-unknown
       - name: Validate every module manifest against its source
         run: cargo run -p retreat_manifest --bin check_manifests -- .
-
-  wasm32:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo check --workspace --target wasm32-unknown-unknown
