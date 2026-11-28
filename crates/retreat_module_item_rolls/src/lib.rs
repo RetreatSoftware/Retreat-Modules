@@ -26,8 +26,8 @@ use retreat_engine_api::{
 };
 use retreat_gameplay_api::{
     ContainerKind, GridItemCatalog, NewItems, SoloPlayer, actor, add_gameplay_contract,
-    add_to_container, container_id, local_player_id, playing_body, refused, route_request,
-    show_item_notice,
+    add_to_container, clear_item_notice, container_id, local_player_id, playing_body, refused,
+    route_request, show_item_notice,
 };
 
 pub use roll::{Dice, pick_rarity, roll_item, roll_random};
@@ -124,7 +124,10 @@ fn give(world: &mut World, args: &CommandArgs, new: NewItems) -> CommandResult {
     };
     let bag = container_id(ContainerKind::Bag, &playing.id);
     match add_to_container(world, player, &bag, new, Vec::new()) {
-        Ok(_) => Ok(CommandOutcome::Continue),
+        Ok(_) => {
+            clear_item_notice(world, body);
+            Ok(CommandOutcome::Continue)
+        }
         Err(why) => {
             show_item_notice(world, body, why.clone());
             Ok(CommandOutcome::Continue)

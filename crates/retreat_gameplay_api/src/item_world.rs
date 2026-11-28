@@ -339,6 +339,24 @@ pub fn show_item_notice(world: &mut World, body: Entity, text: impl Into<String>
     });
 }
 
+/// Clears the player's item notice after a request that succeeded (an old refusal no longer
+/// applies).
+pub fn clear_item_notice(world: &mut World, body: Entity) {
+    if world
+        .get::<ItemNotice>(body)
+        .is_some_and(|notice| !notice.text.is_empty())
+    {
+        let serial = world
+            .get::<ItemNotice>(body)
+            .map_or(0, |notice| notice.serial)
+            + 1;
+        world.entity_mut(body).insert(ItemNotice {
+            text: String::new(),
+            serial,
+        });
+    }
+}
+
 /// Hands out `count` new item uids (see the module docs). Fails only when the reservation cannot be
 /// saved.
 pub fn allocate_item_uids(world: &mut World, count: u64) -> Result<Vec<ItemUid>, String> {
@@ -654,7 +672,10 @@ pub fn put_request(
     };
     let to = crate::container_id(kind, &playing.id);
     match move_item(world, player, ItemUid(uid), &to, x, y, rotated == 1) {
-        Ok(()) => Ok(retreat_engine_api::CommandOutcome::Continue),
+        Ok(()) => {
+            clear_item_notice(world, body);
+            Ok(retreat_engine_api::CommandOutcome::Continue)
+        }
         Err(why) => {
             show_item_notice(world, body, why.clone());
             Ok(retreat_engine_api::CommandOutcome::Continue)

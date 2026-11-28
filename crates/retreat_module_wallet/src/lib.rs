@@ -24,9 +24,10 @@ use retreat_engine_api::{
 use retreat_gameplay_api::{
     CharacterId, CharacterSize, ContainerKind, GameplaySystems, ItemTransaction, NewItems,
     ServiceSpots, SoloPlayer, Wallet, actor, add_gameplay_contract, add_to_container,
-    apply_item_transaction, character_record_owner, container_id, container_items, in_safe_area,
-    is_authority, local_player_id, named_entity, playing_body, playing_characters, refused,
-    route_request, show_item_notice, sync_item_privacy, wallet_entity_name,
+    apply_item_transaction, character_record_owner, clear_item_notice, container_id,
+    container_items, in_safe_area, is_authority, local_player_id, named_entity, playing_body,
+    playing_characters, refused, route_request, show_item_notice, sync_item_privacy,
+    wallet_entity_name,
 };
 
 /// This module's record part (and id).
@@ -193,7 +194,13 @@ fn at_deposit(
 /// Answers a request's result: a refusal becomes the player's notice.
 fn answer(world: &mut World, args: &CommandArgs, result: Result<(), String>) -> CommandResult {
     match result {
-        Ok(()) => Ok(CommandOutcome::Continue),
+        Ok(()) => {
+            let player = actor(world, args)?;
+            if let Some((body, _)) = playing_body(world, player) {
+                clear_item_notice(world, body);
+            }
+            Ok(CommandOutcome::Continue)
+        }
         Err(why) => {
             let player = actor(world, args)?;
             // A refusal is the player's notice (not an error); without a character there is no one
