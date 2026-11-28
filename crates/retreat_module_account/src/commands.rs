@@ -1,4 +1,4 @@
-//! `account.*` commands that change an account, the one routing rule they follow, and the
+//! `account.*` commands that change an account (routed by the contract's `route`), and the
 //! assertions.
 
 use bevy::prelude::*;
@@ -7,8 +7,8 @@ use retreat_engine_api::{
     NetInputQueue, NetLocalClient, RecordStore,
 };
 use retreat_gameplay_api::{
-    CharacterEntered, CharacterId, CharacterLeft, PlayerId, PlayingCharacter, SoloPlayer, actor,
-    local_player_id,
+    CharacterEntered, CharacterId, CharacterLeft, PlayerId, PlayingCharacter, Route, SoloPlayer,
+    actor, local_player_id, route,
 };
 
 use crate::config::AccountConfig;
@@ -19,27 +19,6 @@ use crate::session::{AccountSession, open_session, session_of};
 
 /// The player id of the solo player (a game without a network).
 pub(crate) const SOLO_PLAYER: PlayerId = PlayerId(0);
-
-/// Where a command that changes an account goes (the one rule, see the module docs).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Route {
-    /// A network client's own request (a button, a field, a script line): send it to the server.
-    SendToServer,
-    /// A network client running its own request as a prediction: the server decides, so nothing.
-    Ignore,
-    /// The server, or a game without a network: decide.
-    Decide,
-}
-
-pub(crate) fn route(world: &World) -> Route {
-    let is_client = world.resource::<NetInputQueue>().accepting;
-    let sent_by = world.resource::<NetCommandSender>().0;
-    match (is_client, sent_by) {
-        (true, None) => Route::SendToServer,
-        (true, Some(_)) => Route::Ignore,
-        (false, _) => Route::Decide,
-    }
-}
 
 /// Sends `line` to the server as this player's input.
 pub(crate) fn send_to_server(world: &mut World, line: String) {

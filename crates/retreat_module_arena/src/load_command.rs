@@ -7,7 +7,7 @@ use bevy::prelude::*;
 use retreat_engine_api::{
     CommandArgs, CommandOutcome, CommandResult, PhysicsBody, PhysicsBodyKind, PhysicsShape,
 };
-use retreat_gameplay_api::{MapAreas, PickupSpots, SpawnPoints};
+use retreat_gameplay_api::{MapAreas, PickupSpots, ServiceSpots, SpawnPoints};
 
 /// Marks an entity built from a map piece.
 #[derive(Component)]
@@ -57,6 +57,7 @@ pub(crate) fn load_command(world: &mut World, args: &CommandArgs) -> CommandResu
     }
     world.insert_resource(SpawnPoints(map.spawn_points));
     world.insert_resource(PickupSpots(map.pickup_spots));
+    world.insert_resource(ServiceSpots(map.service_spots));
     world.insert_resource(MapAreas(map.areas));
     world.insert_resource(LoadedArena(id));
     Ok(CommandOutcome::Continue)

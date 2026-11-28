@@ -112,6 +112,7 @@ pub fn graybox_map() -> ArenaMap {
                 feet: feet.into(),
             })
             .collect(),
+        service_spots: Vec::new(),
         areas: Vec::new(),
     }
 }

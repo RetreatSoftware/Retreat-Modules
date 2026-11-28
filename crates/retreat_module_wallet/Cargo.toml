@@ -1,0 +1,28 @@
+[package]
+name = "retreat_module_wallet"
+description = "Retreat module: a safe gold balance per character; carried gold is deposited and withdrawn at a deposit spot in the city, atomically with the bag."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lib]
+test = false
+doctest = false
+
+[dependencies]
+bevy.workspace = true
+retreat_engine_api.workspace = true
+retreat_gameplay_api.workspace = true
+
+# Module manifest (schema in Retreat-Modules/CLAUDE.md).
+[package.metadata.retreat]
+manifest_version = 1
+id = "wallet"
+display_name = "Wallet"
+summary = "Keeps a safe gold balance per character: carried gold is deposited and withdrawn at a deposit spot in the city, saved with the bag in one atomic write."
+plugin = "retreat_module_wallet::WalletModulePlugin"
+commands = ["wallet.deposit", "wallet.withdraw", "assert.wallet_balance"]
+requires = ["networking", "storage", "ui"]
+engine_api = "0.1"
+targets = ["native", "wasm"]
+network_role = "both"

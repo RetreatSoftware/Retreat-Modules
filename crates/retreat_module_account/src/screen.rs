@@ -10,9 +10,10 @@ use retreat_engine_api::{
 };
 use retreat_gameplay_api::{CharacterId, SoloPlayer, local_player_id};
 
-use crate::commands::{Route, delete_listed_character, play_character, route, send_to_server};
+use crate::commands::{delete_listed_character, play_character, send_to_server};
 use crate::config::AccountConfig;
 use crate::session::{AccountSession, session_of};
+use retreat_gameplay_api::{Route, route};
 
 const LOGIN_PANEL: &str = "account_login";
 const CHARACTERS_PANEL: &str = "account_characters";

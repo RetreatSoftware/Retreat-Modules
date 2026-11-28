@@ -55,7 +55,7 @@ fn unknown_key_is_rejected() {
 #[test]
 fn wrong_manifest_version_is_rejected() {
     assert!(
-        errors(&with("manifest_version = 1", "manifest_version = 2")).contains("manifest_version")
+        errors(&with("manifest_version = 1", "manifest_version = 3")).contains("manifest_version")
     );
 }
 
@@ -129,4 +129,31 @@ fn config_placeholder_must_be_empty() {
 fn empty_config_placeholder_is_accepted() {
     let text = format!("{VALID}\n[package.metadata.retreat.config]\n");
     assert!(Manifest::from_cargo_toml(&text).is_ok());
+}
+
+#[test]
+fn conflicts_need_manifest_v2_and_name_other_modules() {
+    let v1 = errors(&with(
+        "id = \"demo\"",
+        "id = \"demo\"\nconflicts = [\"inventory\"]",
+    ));
+    assert!(v1.contains("conflicts needs manifest_version = 2"), "{v1}");
+    let v2 = with("manifest_version = 1", "manifest_version = 2").replace(
+        "id = \"demo\"",
+        "id = \"demo\"\nconflicts = [\"inventory\"]",
+    );
+    assert_eq!(
+        Manifest::from_cargo_toml(&v2).unwrap().conflicts,
+        ["inventory"]
+    );
+    let itself = with("manifest_version = 1", "manifest_version = 2")
+        .replace("id = \"demo\"", "id = \"demo\"\nconflicts = [\"demo\"]");
+    assert!(errors(&itself).contains("lists the module itself"));
+    let v2_alone = with("manifest_version = 1", "manifest_version = 2");
+    assert!(
+        Manifest::from_cargo_toml(&v2_alone)
+            .unwrap()
+            .conflicts
+            .is_empty()
+    );
 }

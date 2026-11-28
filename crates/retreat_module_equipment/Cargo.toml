@@ -1,0 +1,28 @@
+[package]
+name = "retreat_module_equipment"
+description = "Retreat module: worn items in seven slots (head, chest, hands, legs, feet, main hand, off hand) with level requirements and two-handed weapons; saved on the server."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lib]
+test = false
+doctest = false
+
+[dependencies]
+bevy.workspace = true
+retreat_engine_api.workspace = true
+retreat_gameplay_api.workspace = true
+
+# Module manifest (schema in Retreat-Modules/CLAUDE.md).
+[package.metadata.retreat]
+manifest_version = 1
+id = "equipment"
+display_name = "Equipment"
+summary = "Lets characters wear items in seven slots, checking the slot, the level requirement and two-handed weapons; saved on the server with every change."
+plugin = "retreat_module_equipment::EquipmentModulePlugin"
+commands = ["equipment.put", "equipment.test_level", "equipment.test_level_up", "assert.equipped"]
+requires = ["networking", "storage", "ui"]
+engine_api = "0.1"
+targets = ["native", "wasm"]
+network_role = "both"

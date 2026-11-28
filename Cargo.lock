@@ -4748,7 +4748,7 @@ checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
 [[package]]
 name = "retreat_engine_api"
 version = "0.1.0"
-source = "git+https://github.com/RetreatSoftware/Retreat-Engine-3D#cda8a3fa6ec9b11e27babaca1a2c1b55c3c75474"
+source = "git+https://github.com/RetreatSoftware/Retreat-Engine-3D#b3c0f644e873daf2b557b9140733ce3bddc2aa85"
 dependencies = [
  "bevy",
  "postcard",
@@ -4832,11 +4832,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "retreat_module_container_ui"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "retreat_engine_api",
+ "retreat_gameplay_api",
+]
+
+[[package]]
+name = "retreat_module_equipment"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "retreat_engine_api",
+ "retreat_gameplay_api",
+]
+
+[[package]]
 name = "retreat_module_fox_walk"
 version = "0.1.0"
 dependencies = [
  "bevy",
  "retreat_engine_api",
+]
+
+[[package]]
+name = "retreat_module_grid_inventory"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "retreat_engine_api",
+ "retreat_gameplay_api",
 ]
 
 [[package]]
@@ -4865,6 +4892,15 @@ dependencies = [
  "retreat_engine_api",
  "retreat_gameplay_api",
  "serde",
+]
+
+[[package]]
+name = "retreat_module_item_rolls"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "retreat_engine_api",
+ "retreat_gameplay_api",
 ]
 
 [[package]]
@@ -4960,6 +4996,24 @@ dependencies = [
 
 [[package]]
 name = "retreat_module_third_person_camera"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "retreat_engine_api",
+ "retreat_gameplay_api",
+]
+
+[[package]]
+name = "retreat_module_town_chest"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "retreat_engine_api",
+ "retreat_gameplay_api",
+]
+
+[[package]]
+name = "retreat_module_wallet"
 version = "0.1.0"
 dependencies = [
  "bevy",

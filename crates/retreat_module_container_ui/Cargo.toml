@@ -1,0 +1,28 @@
+[package]
+name = "retreat_module_container_ui"
+description = "Retreat module: one grid UI for a character's item containers (bag, equipment, town chest) with icons, drag and drop, turning, scrolling and tooltips."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lib]
+test = false
+doctest = false
+
+[dependencies]
+bevy.workspace = true
+retreat_engine_api.workspace = true
+retreat_gameplay_api.workspace = true
+
+# Module manifest (schema in Retreat-Modules/CLAUDE.md).
+[package.metadata.retreat]
+manifest_version = 1
+id = "container_ui"
+display_name = "Container UI"
+summary = "Shows the character's bag, equipment and town chest as item grids with icons, tooltips, scrolling and drag and drop (R turns an item); drops run each container's own command."
+plugin = "retreat_module_container_ui::ContainerUiModulePlugin"
+commands = ["container_ui.toggle", "container_ui.open", "container_ui.close"]
+actions = ["container_ui_toggle"]
+requires = ["input", "ui"]
+engine_api = "0.1"
+targets = ["native", "wasm"]

@@ -1,0 +1,26 @@
+[package]
+name = "retreat_module_item_rolls"
+description = "Retreat module: rolls grid item instances (base, rarity tier, affixes, level requirement) from the game's item data, and test commands that give items and gold."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+bevy.workspace = true
+retreat_engine_api.workspace = true
+retreat_gameplay_api.workspace = true
+
+# Module manifest (schema in Retreat-Modules/CLAUDE.md).
+[package.metadata.retreat]
+manifest_version = 1
+id = "item_rolls"
+display_name = "Item rolls"
+summary = "Rolls item instances with rarity tiers, random affixes and level requirements from the game's item data; test commands give random items and gold."
+plugin = "retreat_module_item_rolls::ItemRollsModulePlugin"
+commands = ["items.grant", "items.grant_test", "items.grant_gold"]
+requires = ["storage", "ui"]
+engine_api = "0.1"
+targets = ["native", "wasm"]

@@ -4,7 +4,7 @@
 //!
 //! | key | meaning |
 //! |---|---|
-//! | `manifest_version` | must be `1` |
+//! | `manifest_version` | `1`, or `2` for a manifest that uses `conflicts` |
 //! | `id` | module id, `[a-z][a-z0-9_]*`; the crate is `retreat_module_<id>` |
 //! | `display_name`, `summary` | non-empty text shown in Forge |
 //! | `plugin` | `<crate>::<Type>`: the Bevy plugin a game adds |
@@ -15,14 +15,16 @@
 //! | `targets` | `"native"` and/or `"wasm"` |
 //! | `network_role` | `"server"`, `"client"` or `"both"`; required if and only if `requires` has `networking` |
 //! | `config` | optional placeholder table; must be empty in v1 (reserved for configuration) |
+//! | `conflicts` | optional, manifest v2 only: ids of modules a game must not select together with this one (alternatives such as two inventories) |
 
 use crate::capabilities::is_capability;
 use crate::problem::Problem;
 use semver::VersionReq;
 use serde::Deserialize;
 
-/// The only manifest version this crate reads.
-pub const MANIFEST_VERSION: u32 = 1;
+/// The newest manifest version this crate reads (it reads every version up to it). v2 (2026-11-28)
+/// adds `conflicts`; a v1 manifest stays valid unchanged.
+pub const MANIFEST_VERSION: u32 = 2;
 
 /// Where a networked module's code runs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -55,6 +57,8 @@ pub struct Manifest {
     pub engine_api: VersionReq,
     pub targets: Vec<Target>,
     pub network_role: Option<NetworkRole>,
+    /// Modules this one must never be selected with (empty before manifest v2).
+    pub conflicts: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -74,6 +78,8 @@ struct RawManifest {
     network_role: Option<NetworkRole>,
     #[serde(default)]
     config: toml::Table,
+    #[serde(default)]
+    conflicts: Vec<String>,
 }
 
 /// `[a-z][a-z0-9_]*`
@@ -142,11 +148,24 @@ impl Manifest {
         };
         let mut problems: Vec<String> = Vec::new();
 
-        if raw.manifest_version != MANIFEST_VERSION {
+        if !(1..=MANIFEST_VERSION).contains(&raw.manifest_version) {
             problems.push(format!(
-                "manifest_version is {}, this validator reads {MANIFEST_VERSION}; set manifest_version = {MANIFEST_VERSION}",
+                "manifest_version is {}, this validator reads 1 to {MANIFEST_VERSION}; set manifest_version = 1 (or 2 to use `conflicts`)",
                 raw.manifest_version
             ));
+        }
+        if raw.manifest_version < 2 && !raw.conflicts.is_empty() {
+            problems
+                .push("conflicts needs manifest_version = 2; set manifest_version = 2".to_string());
+        }
+        problems.extend(check_list(
+            "conflicts",
+            &raw.conflicts,
+            is_snake_id,
+            "a module id in lowercase snake_case",
+        ));
+        if raw.conflicts.contains(&raw.id) {
+            problems.push("conflicts lists the module itself".to_string());
         }
         if !is_snake_id(&raw.id) {
             problems.push(format!(
@@ -247,6 +266,7 @@ impl Manifest {
                 engine_api,
                 targets: raw.targets,
                 network_role: raw.network_role,
+                conflicts: raw.conflicts,
             }),
             _ => Err(problems
                 .into_iter()

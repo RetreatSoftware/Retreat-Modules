@@ -114,9 +114,14 @@ fn the_contract_registers_the_shared_net_state() {
             // The contract's networking types bring the engine's own shared state.
             "engine.intangible",
             "engine.pose",
+            "gameplay.character_level",
+            "gameplay.grid_item",
             "gameplay.health",
             "gameplay.in_area",
             "gameplay.inventory",
+            "gameplay.item_container",
+            "gameplay.item_notice",
+            "gameplay.item_place",
             "gameplay.kill_log",
             "gameplay.last_pickup",
             "gameplay.look",
@@ -125,6 +130,7 @@ fn the_contract_registers_the_shared_net_state() {
             "gameplay.playing_character",
             "gameplay.respawn",
             "gameplay.scoreboard",
+            "gameplay.wallet",
             "gameplay.weapons"
         ]
     );

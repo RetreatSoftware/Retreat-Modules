@@ -48,3 +48,39 @@ pub fn issue(world: &mut World, line: String) {
         warn!("{error}");
     }
 }
+
+/// Where a player request command goes (the crawler's routing rule, see the modules' CLAUDE.md).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Route {
+    /// A network client's own request (a button, a field, a script line, a drop): send it to the
+    /// server and do nothing else.
+    SendToServer,
+    /// A network client running its own request as a prediction: the server decides, so nothing.
+    Ignore,
+    /// The server, or a game without a network: decide, for the sender.
+    Decide,
+}
+
+/// The route of the command being run now.
+pub fn route(world: &World) -> Route {
+    let is_client = world.resource::<NetInputQueue>().accepting;
+    let sent_by = world.resource::<NetCommandSender>().0;
+    match (is_client, sent_by) {
+        (true, None) => Route::SendToServer,
+        (true, Some(_)) => Route::Ignore,
+        (false, _) => Route::Decide,
+    }
+}
+
+/// Routes the command line `line` that is being run (see [`route`]): `true` when this machine
+/// decides it, `false` when it was sent to the server or is a client's prediction (nothing to do).
+pub fn route_request(world: &mut World, line: String) -> bool {
+    match route(world) {
+        Route::SendToServer => {
+            world.resource_mut::<NetInputQueue>().push(line);
+            false
+        }
+        Route::Ignore => false,
+        Route::Decide => true,
+    }
+}

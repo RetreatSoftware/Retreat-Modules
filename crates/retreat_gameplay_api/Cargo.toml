@@ -7,7 +7,6 @@ publish.workspace = true
 
 # A contract crate, not a module: no manifest, no plugin, no commands, no systems.
 [lib]
-test = false
 doctest = false
 
 [dependencies]

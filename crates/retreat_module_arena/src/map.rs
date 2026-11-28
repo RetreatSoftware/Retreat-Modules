@@ -1,7 +1,9 @@
 //! What a map is, and the pure rules a map must satisfy.
 
 use bevy::prelude::*;
-use retreat_gameplay_api::{Area, CharacterSize, MAX_PLAYERS, MapAreas, PickupSpot, SpawnPoint};
+use retreat_gameplay_api::{
+    Area, CharacterSize, MAX_PLAYERS, MapAreas, PickupSpot, ServiceSpot, SpawnPoint,
+};
 
 /// Surfaces closer than this are touching, not overlapping (metres).
 const TOUCH_TOLERANCE: f32 = 1.0e-3;
@@ -47,6 +49,8 @@ pub struct ArenaMap {
     pub spawn_points: Vec<SpawnPoint>,
     /// Where things to pick up may appear.
     pub pickup_spots: Vec<PickupSpot>,
+    /// Where services are used (town chest, gold deposit), each with a reach.
+    pub service_spots: Vec<ServiceSpot>,
     /// The map's areas (city, dungeons) with their rules; empty for a map without areas. When there
     /// are areas, every spawn point lies in one.
     pub areas: Vec<Area>,

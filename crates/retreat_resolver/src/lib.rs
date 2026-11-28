@@ -3,7 +3,8 @@
 //! Pure and Forge-free. Input: the module ids a game wants, every available manifest and the
 //! `retreat_engine_api` version the game builds against. Output: an ordered build plan, or every
 //! problem in plain language (never only the first). Checked: unknown or repeated module ids,
-//! duplicate module/command/action ids among the selected, unknown capabilities, incompatible
+//! duplicate module/command/action ids among the selected, modules that conflict (manifest v2
+//! `conflicts`), unknown capabilities, incompatible
 //! `engine_api`, and no common build target.
 
 use retreat_manifest::capabilities::is_capability;
@@ -75,6 +76,7 @@ pub fn resolve(
     }
 
     problems.extend(find_duplicates(&selected));
+    problems.extend(find_conflicts(&selected));
 
     for manifest in &selected {
         for name in &manifest.requires {
@@ -122,6 +124,25 @@ pub fn resolve(
         capabilities: capabilities.into_iter().collect(),
         targets,
     })
+}
+
+/// Every pair of selected modules where one lists the other in `conflicts` (once per pair).
+fn find_conflicts(selected: &[&Manifest]) -> Vec<Problem> {
+    let mut problems = Vec::new();
+    for (index, first) in selected.iter().enumerate() {
+        for second in &selected[index + 1..] {
+            if first.conflicts.contains(&second.id) || second.conflicts.contains(&first.id) {
+                problems.push(Problem::new(
+                    &first.id,
+                    format!(
+                        "cannot be selected together with `{}`: they are alternatives; keep one of them",
+                        second.id
+                    ),
+                ));
+            }
+        }
+    }
+    problems
 }
 
 fn available_ids(manifests: &[Manifest]) -> String {

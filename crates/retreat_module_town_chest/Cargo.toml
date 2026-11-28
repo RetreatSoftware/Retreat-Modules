@@ -1,0 +1,27 @@
+[package]
+name = "retreat_module_town_chest"
+description = "Retreat module: an unlimited safe storage grid per character, usable only at a chest spot in the city, saved on the server."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+bevy.workspace = true
+retreat_engine_api.workspace = true
+retreat_gameplay_api.workspace = true
+
+# Module manifest (schema in Retreat-Modules/CLAUDE.md).
+[package.metadata.retreat]
+manifest_version = 1
+id = "town_chest"
+display_name = "Town chest"
+summary = "Gives every character safe storage with unlimited room, opened at a chest spot in the city and saved on the server with every change."
+plugin = "retreat_module_town_chest::TownChestModulePlugin"
+commands = ["chest.open", "chest.close", "chest.put", "assert.chest_open", "assert.chest_closed", "assert.chest_items"]
+requires = ["networking", "storage", "ui"]
+engine_api = "0.1"
+targets = ["native", "wasm"]
+network_role = "both"

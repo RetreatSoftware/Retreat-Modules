@@ -6,7 +6,7 @@
 
 use bevy::math::ops;
 use bevy::prelude::*;
-use retreat_gameplay_api::{Area, AreaId, AreaRules, SpawnPoint};
+use retreat_gameplay_api::{Area, AreaId, AreaRules, ServiceSpot, SpawnPoint};
 
 use crate::map::{ArenaMap, MapPiece, PieceKind};
 
@@ -43,6 +43,10 @@ const CITY_BOXES: &[MetreBox] = &[
     ("stall_2", Cover, [-6.0, 0.0, 14.0], [-2.0, 1.2, 16.0]),
     ("stall_3", Cover, [2.0, 0.0, 14.0], [6.0, 1.2, 16.0]),
     ("stall_4", Cover, [10.0, 0.0, 14.0], [14.0, 1.2, 16.0]),
+    // The town chest (phase 2) and the gold deposit counter, north of the fountain; the spots in
+    // `SERVICES` stand in front of them.
+    ("town_chest", Cover, [-9.0, 0.0, -14.0], [-6.0, 1.0, -12.5]),
+    ("deposit_counter", Cover, [6.0, 0.0, -14.0], [9.0, 1.2, -12.5]),
 ];
 
 #[rustfmt::skip]
@@ -55,6 +59,11 @@ const DUNGEON_BOXES: &[MetreBox] = &[
     ("dungeon_pillar_1", Pillar, [492.0, 0.0, -6.0], [494.0, WALL_HEIGHT, -4.0]),
     ("dungeon_pillar_2", Pillar, [506.0, 0.0, 4.0], [508.0, WALL_HEIGHT, 6.0]),
 ];
+
+/// Services `(kind, x, z)` in the city (feet height 0), in front of their boxes (placeholders).
+const SERVICES: &[(&str, f32, f32)] = &[("town_chest", -7.5, -11.0), ("deposit", 7.5, -11.0)];
+/// How near a character must stand to use a service (placeholder).
+const SERVICE_REACH: f32 = 2.5;
 
 /// Where characters start in the city: a ring around the fountain, looking at it.
 const CITY_SPAWN_RADIUS: f32 = 8.0;
@@ -97,6 +106,14 @@ pub fn crawler_city_map() -> ArenaMap {
         pieces,
         spawn_points,
         pickup_spots: Vec::new(),
+        service_spots: SERVICES
+            .iter()
+            .map(|&(kind, x, z)| ServiceSpot {
+                kind: kind.to_string(),
+                position: Vec3::new(x, 0.0, z),
+                radius: SERVICE_REACH,
+            })
+            .collect(),
         areas: vec![
             Area {
                 id: AreaId("city".to_string()),

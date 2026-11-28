@@ -21,6 +21,7 @@ fn manifest(id: &str, commands: &[&str], actions: &[&str], requires: &[&str]) ->
         } else {
             None
         },
+        conflicts: Vec::new(),
     }
 }
 
@@ -136,4 +137,23 @@ fn every_problem_is_reported_not_only_the_first() {
     ];
     let error = resolve(&ids(&["a", "b", "missing"]), &all, &engine()).unwrap_err();
     assert!(error.problems.len() >= 3, "{error}");
+}
+
+#[test]
+fn modules_that_conflict_are_never_selected_together() {
+    let mut grid = manifest("grid_inventory", &["bag.put"], &[], &[]);
+    grid.conflicts = vec!["inventory".to_string()];
+    let stack = manifest("inventory", &["inventory.use"], &[], &[]);
+    let other = manifest("menu", &["menu.toggle"], &[], &[]);
+    let manifests = [grid, stack, other];
+    let text = error_text(
+        &["inventory", "menu", "grid_inventory"],
+        &manifests,
+        &engine(),
+    );
+    assert!(
+        text.contains("cannot be selected together with `grid_inventory`"),
+        "{text}"
+    );
+    assert!(resolve(&ids(&["grid_inventory", "menu"]), &manifests, &engine()).is_ok());
 }

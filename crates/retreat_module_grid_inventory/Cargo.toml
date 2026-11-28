@@ -1,0 +1,30 @@
+[package]
+name = "retreat_module_grid_inventory"
+description = "Retreat module: a fixed-size grid bag per character; items take W x H cells, turn 90 degrees and stack; saved on the server."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lib]
+test = false
+doctest = false
+
+[dependencies]
+bevy.workspace = true
+retreat_engine_api.workspace = true
+retreat_gameplay_api.workspace = true
+
+# Module manifest (schema in Retreat-Modules/CLAUDE.md).
+[package.metadata.retreat]
+manifest_version = 2
+id = "grid_inventory"
+# The arena's stack inventory is the other inventory model: a game uses one of the two.
+conflicts = ["inventory"]
+display_name = "Grid inventory"
+summary = "Gives every character a fixed-size grid bag: items take W x H cells, can be turned and stacked, and are saved on the server with every change."
+plugin = "retreat_module_grid_inventory::GridInventoryModulePlugin"
+commands = ["bag.put", "bag.split", "assert.bag_items", "assert.bag_quantity"]
+requires = ["networking", "storage"]
+engine_api = "0.1"
+targets = ["native", "wasm"]
+network_role = "both"
