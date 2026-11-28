@@ -4,10 +4,11 @@
 use bevy::prelude::*;
 use retreat_engine_api::{
     CommandArgs, CommandError, CommandOutcome, CommandResult, NetClientIdentity, NetCommandSender,
-    NetInputQueue, RecordStore,
+    NetInputQueue, NetLocalClient, RecordStore,
 };
 use retreat_gameplay_api::{
     CharacterEntered, CharacterId, CharacterLeft, PlayerId, PlayingCharacter, SoloPlayer, actor,
+    local_player_id,
 };
 
 use crate::config::AccountConfig;
@@ -280,12 +281,22 @@ pub(crate) fn delete_command(world: &mut World, args: &CommandArgs) -> CommandRe
     }
 }
 
-/// The session of the player named by argument 0, on any machine (sessions are shared state).
+/// The session of the player named by argument 0 (`me`: this machine's player), on any machine
+/// (sessions are shared state).
 fn session_for_assert(
     world: &mut World,
     args: &CommandArgs,
 ) -> Result<AccountSession, CommandError> {
-    let player = PlayerId(args.parse(0, "player")?);
+    let named: String = args.parse(0, "player")?;
+    let player = if named == "me" {
+        local_player_id(
+            *world.resource::<NetLocalClient>(),
+            *world.resource::<SoloPlayer>(),
+        )
+        .ok_or_else(|| args.failure("this machine has no player yet (not joined or logged in)"))?
+    } else {
+        PlayerId(args.parse(0, "player")?)
+    };
     let entity = session_of(world, player)
         .ok_or_else(|| args.failure(format!("player {} has no session", player.0)))?;
     Ok(session(world, entity))

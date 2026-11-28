@@ -12,7 +12,9 @@
 //!   connection. New characters start in the map's home area.
 //! - **Without a network:** `spawn.solo <player>` spawns a character and makes it this machine's
 //!   player (`SoloPlayer`).
-//! - The character is `player_<id>`: `PlayerId`, `LookAngles` (facing the spawn point's way) and
+//! - The character is `player_<id>` (a saved character's body is `character_<character id>_<n>`,
+//!   numbered per appearance, because a body that left keeps its name for the engine's rollback
+//!   window and a character may come back at once): `PlayerId`, `LookAngles` (facing the spawn point's way) and
 //!   an upright capsule body. How it moves and looks is up to other modules; this one adds only a
 //!   plain capsule mesh where the app draws meshes.
 //! - The spawn point is the one farthest from the other characters.
@@ -25,8 +27,8 @@ use bevy::prelude::*;
 use retreat_engine_api::AppCommandExt;
 use retreat_gameplay_api::{GameplaySystems, add_gameplay_contract};
 
-pub use characters::{PLACE_RECORD_PART, entry_place};
-pub use spawn::{spawn_character, spawn_character_at};
+pub use characters::{PLACE_RECORD_PART, character_body_name, entry_place};
+pub use spawn::{spawn_character, spawn_character_named};
 
 /// Insert before adding the plugin to change it (the same on server and clients).
 #[derive(Resource, Debug, Clone, Copy, PartialEq)]

@@ -18,7 +18,7 @@ pub fn spawn_character(world: &mut World, player: PlayerId) -> Result<(), String
         return Err("there are no spawn points; load a map first".to_string());
     };
     let spawn = points[index];
-    spawn_character_at(world, player, spawn).map(|_| ())
+    spawn_character_named(world, player, spawn, player_entity_name(player)).map(|_| ())
 }
 
 /// Where the feet of every character are.
@@ -31,14 +31,14 @@ pub(crate) fn occupied_feet(world: &mut World) -> Vec<Vec3> {
         .collect()
 }
 
-/// Spawns the character of `player` with its feet at `spawn`, looking its way; returns the body.
-/// The error says why it cannot exist.
-pub fn spawn_character_at(
+/// Spawns the character body `name` of `player` with its feet at `spawn`, looking its way; returns
+/// the body. The error says why it cannot exist.
+pub fn spawn_character_named(
     world: &mut World,
     player: PlayerId,
     spawn: SpawnPoint,
+    name: String,
 ) -> Result<Entity, String> {
-    let name = player_entity_name(player);
     let size = *world.resource::<CharacterSize>();
     let mut existing = world.query::<(&Name, Option<&PlayerId>)>();
     let mut players = 0;

@@ -146,6 +146,7 @@ fn solo_login_create_play_log_out_and_delete() {
     ok(&mut app, "account.create Bob");
     ok(&mut app, "account.create Ann");
     ok(&mut app, "assert.account_characters 0 Bob Ann");
+    ok(&mut app, "assert.account_characters me Bob Ann");
     let listed = session(&mut app, 0).characters;
     assert_eq!(listed[0].id.0, "alice-1");
     assert_eq!(listed[1].id.0, "alice-2");

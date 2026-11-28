@@ -257,7 +257,7 @@ fn joining_spawns_nothing_until_a_character_enters_and_it_carries_that_character
     assert_eq!(app.world().get::<PlayingCharacter>(entity), Some(&bob()));
     assert_eq!(
         app.world().get::<Name>(entity).unwrap().as_str(),
-        "player_3"
+        "character_alice-1_1"
     );
 }
 
@@ -283,8 +283,8 @@ fn logging_out_saves_the_place_and_the_next_entry_starts_there() {
         saved(&app),
         Some(json!({"feet": [7.0, 0.0, -3.0], "yaw": 2.0}))
     );
-    // Back in (as another connection: the old body keeps its name for the rollback window).
-    enter(&mut app, 4);
+    // Back in at once (the old body keeps its name for the rollback window; the new one is numbered).
+    enter(&mut app, 3);
     let again = body(&mut app);
     let transform = app.world().get::<Transform>(again).unwrap();
     assert_eq!(size.feet(transform.translation), Vec3::new(7.0, 0.0, -3.0));

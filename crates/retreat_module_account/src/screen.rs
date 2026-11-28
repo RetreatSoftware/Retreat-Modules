@@ -17,7 +17,8 @@ use crate::session::{AccountSession, session_of};
 const LOGIN_PANEL: &str = "account_login";
 const CHARACTERS_PANEL: &str = "account_characters";
 const PLAYING_PANEL: &str = "account_playing";
-const TITLE_WIDGET: &str = "account_title";
+/// Sorts before the list lines (widgets at one anchor stack in id order).
+const TITLE_WIDGET: &str = "account_header";
 const NOTICE_WIDGET: &str = "account_notice";
 /// The list lines are `account_line_0` .. one per allowed character.
 const LINE_WIDGET_PREFIX: &str = "account_line_";

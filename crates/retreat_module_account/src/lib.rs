@@ -128,12 +128,12 @@ impl Plugin for AccountModulePlugin {
             )
             .register_command(
                 "assert.account_characters",
-                "assert.account_characters <player> [character names...]",
+                "assert.account_characters <player|me> [character names...]",
                 commands::assert_characters_command,
             )
             .register_command(
                 "assert.account_playing",
-                "assert.account_playing <player> <character name|nobody>",
+                "assert.account_playing <player|me> <character name|nobody>",
                 commands::assert_playing_command,
             )
             .register_command(

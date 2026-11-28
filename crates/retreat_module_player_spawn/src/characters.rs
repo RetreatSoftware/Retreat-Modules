@@ -21,7 +21,7 @@ use retreat_gameplay_api::{
 };
 
 use crate::PlayerSpawnConfig;
-use crate::spawn::{occupied_feet, spawn_character_at};
+use crate::spawn::{occupied_feet, spawn_character_named};
 
 /// This module's part of a character's records.
 pub const PLACE_RECORD_PART: &str = "player_spawn";
@@ -104,6 +104,17 @@ fn save_place(world: &mut World, entity: Entity) {
     }
 }
 
+/// How many characters entered the world on this machine (the server): numbers body names.
+#[derive(Resource, Debug, Default)]
+pub(crate) struct CharacterEntries(u64);
+
+/// The body name of a character's `entry`-th appearance: `character_<id>_<entry>`. A body that left
+/// keeps its name for the engine's rollback window, so a character that comes back at once gets a
+/// new name.
+pub fn character_body_name(character: &PlayingCharacter, entry: u64) -> String {
+    format!("character_{}_{entry}", character.id.0)
+}
+
 /// The live body of `player`.
 fn body_of(world: &mut World, player: PlayerId) -> Option<Entity> {
     let mut bodies = world.query_filtered::<(Entity, &PlayerId), (
@@ -143,7 +154,13 @@ pub(crate) fn spawn_entered_characters(
             );
             continue;
         };
-        match spawn_character_at(world, message.player, place) {
+        let entry = {
+            let mut entries = world.get_resource_or_insert_with(CharacterEntries::default);
+            entries.0 += 1;
+            entries.0
+        };
+        let name = character_body_name(&message.character, entry);
+        match spawn_character_named(world, message.player, place, name) {
             Ok(body) => {
                 world.entity_mut(body).insert(message.character);
             }
