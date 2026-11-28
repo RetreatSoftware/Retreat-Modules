@@ -49,6 +49,25 @@ Sibling repositories (cloned next to this one under `Retreat/`): `Retreat-CoreSD
 - Each module is an independent crate with a manifest (capabilities, dependencies, compatibility, configuration). Modules depend on `Retreat-CoreSDK` and the engine's public API / contract crates, never on each other and never on engine internals.
 - **Shared generic helpers:** check `Retreat-CoreSDK` first. A helper stays inside the module that first needs it; when a second module needs it, move it to CoreSDK instead of copying it. What belongs in CoreSDK, and what does not, is defined in `../Retreat-CoreSDK/CLAUDE.md`. Shared gameplay concepts (items, damage, health) go in contract crates, not in CoreSDK and not duplicated across modules.
 - Modules must build for both native and `wasm32-unknown-unknown`.
+- **A stable module's mechanics never change** (decided with the user 2026-11-28). A game is built on a module's
+  behavior, so changing that behavior breaks every game that uses it. Applies to modules and to the contract and
+  library crates (`retreat_gameplay_api`, `retreat_weapon_kit`): their pure rules are mechanics too.
+  - **Stability status:** every module is *in development* until it is listed under "Stable modules" below. In
+    development, mechanics may change freely. A module becomes stable when a game ships on it (or the user says so);
+    adding it to the list is the one place that records it.
+  - **What the mechanics are:** the module's documented rules (its module docs in `src/lib.rs`), its command and action
+    ids with their arguments, its `<Name>Config::default()` values, and its tests.
+  - **Allowed on a stable module:** extensions, improvements and fixes that keep every existing test passing. New
+    behavior is opt-in: a new config field or a new command whose default leaves the old behavior unchanged.
+  - **A bug fix** is a change to behavior that contradicts the documented rules; it is allowed and adds a regression
+    test. Changing a test for any other reason, or changing a `Config::default()` value, is a mechanics change.
+  - **A mechanics change is a new module**, even when most of the code is similar. A change only one game needs stays
+    in that game's code; when a second game needs it, it becomes a module. The new module gets a new id (e.g.
+    `town_chest_shared`); an id is never reused or repurposed, an unwanted module is retired, not changed. If the two
+    cannot run together, the new one declares `conflicts` (manifest v2). Copying code at the fork is accepted; when
+    both copies keep needing the same fixes, the shared part moves to a contract or library crate (as with
+    `retreat_weapon_kit`).
+- **Stable modules:** none yet (all modules are in development).
 
 ## Working rules
 
